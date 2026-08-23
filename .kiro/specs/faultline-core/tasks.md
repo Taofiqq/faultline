@@ -54,22 +54,22 @@
 
 ## Milestone 3: Deterministic Primitives (P0)
 
-- [ ] **3.1** Implement xoshiro128** PRNG in `src/engine/prng.ts` using `Uint32Array(4)`, `Math.imul`, `>>> 0`. [design.md §PRNG, simulation-invariants]
+- [x] **3.1** Implement xoshiro128** PRNG in `src/engine/prng.ts` using `Uint32Array(4)`, `Math.imul`, `>>> 0`. [design.md §PRNG, simulation-invariants]
   - Deps: 1.5
   - Verify: Unit test outputs match published reference vectors.
-- [ ] **3.2** Write `test/engine/prng.test.ts` — reference vectors, `nextFloat` ∈ [0,1), `nextRange` bounds, seed reproducibility. [testing.md]
+- [x] **3.2** Write `test/engine/prng.test.ts` — reference vectors, `nextFloat` ∈ [0,1), `nextRange` bounds, seed reproducibility. [testing.md]
   - Deps: 3.1
   - Verify: All tests pass.
-- [ ] **3.3** Implement event types union in `src/engine/types.ts` (all 11 event types from design.md §Event Types). [design.md]
+- [x] **3.3** Implement event types union in `src/engine/types.ts` (all 11 event types from design.md §Event Types). [design.md]
   - Deps: 1.5
   - Verify: Types compile.
-- [ ] **3.4** Implement min-heap priority queue keyed by `(timestamp, sequence)` in `src/engine/event-loop.ts`. [design.md §Event Loop, simulation-invariants §Event Ordering]
+- [x] **3.4** Implement min-heap priority queue keyed by `(timestamp, sequence)` in `src/engine/event-loop.ts`. [design.md §Event Loop, simulation-invariants §Event Ordering]
   - Deps: 3.3
   - Verify: Unit test — events dequeued in correct (timestamp, sequence) order.
-- [ ] **3.5** Implement `simulate()` entry point with global sequence counter, maxSimulationTimeMs check, 100K event limit, and `SimulationStopped` emission. [design.md §Event Loop, NFR-9]
+- [x] **3.5** Implement `simulate()` entry point with global sequence counter, maxSimulationTimeMs check, 100K event limit, and `SimulationStopped` emission. [design.md §Event Loop, NFR-9]
   - Deps: 3.4
   - Verify: Unit test — empty scenario terminates immediately; time-limit scenario emits `SimulationStopped`.
-- [ ] **3.6** Write `test/engine/event-loop.test.ts` — FIFO at same timestamp, termination conditions, sequence monotonicity. [testing.md]
+- [x] **3.6** Write `test/engine/event-loop.test.ts` — FIFO at same timestamp, termination conditions, sequence monotonicity. [testing.md]
   - Deps: 3.4, 3.5
   - Verify: All tests pass.
 
