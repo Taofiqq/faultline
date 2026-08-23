@@ -126,25 +126,25 @@
 
 ## Milestone 6: Duplication, Service Errors & Circuit Breakers (P0)
 
-- [ ] **6.1** Implement network duplication in T1: fork N-1 copies with same idempotency key, shared attempt, distinct deliveryIndex. [US-2 duplicate, design.md §Pipeline T1]
+- [x] **6.1** Implement network duplication in T1: fork N-1 copies with same idempotency key, shared attempt, distinct deliveryIndex. [US-2 duplicate, design.md §Pipeline T1]
   - Deps: 4.1, 5.3
   - Verify: Unit test — count 2 produces 1 additional RequestArrived with deliveryIndex=1.
-- [ ] **6.2** Implement simulated service error in T2: probability-based error, not cached, triggers retry. [US-2 service error, design.md §Pipeline T2]
+- [x] **6.2** Implement simulated service error in T2: probability-based error, not cached, triggers retry. [US-2 service error, design.md §Pipeline T2]
   - Deps: 4.2, 5.2
   - Verify: Unit test — error response returned; idempotency registry not populated; retry scheduled.
-- [ ] **6.3** Implement random latency (min/max, PRNG-sampled) in T1. [US-2 random latency]
+- [x] **6.3** Implement random latency (min/max, PRNG-sampled) in T1. [US-2 random latency]
   - Deps: 4.1, 3.1
   - Verify: Unit test — sampled latency ∈ [min, max] for known PRNG state.
-- [ ] **6.4** Implement circuit breaker state machine (`src/engine/circuit-breaker.ts`): consecutive failures, open/half-open/closed, generation tracking. [US-4 Circuit Breaker, design.md §Circuit Breaker]
+- [x] **6.4** Implement circuit breaker state machine (`src/engine/circuit-breaker.ts`): consecutive failures, open/half-open/closed, generation tracking. [US-4 Circuit Breaker, design.md §Circuit Breaker]
   - Deps: 4.4
   - Verify: Unit test — all transitions; stale-generation responses ignored.
-- [ ] **6.5** Integrate circuit breaker into T1 (CircuitOpenError) and T4 (state updates). [design.md §Pipeline]
+- [x] **6.5** Integrate circuit breaker into T1 (CircuitOpenError) and T4 (state updates). [design.md §Pipeline]
   - Deps: 6.4
   - Verify: Unit test — open circuit rejects; half-open permits one probe.
-- [ ] **6.6** Verify circuit-open errors are non-retryable and don't consume budget. [US-4 Retries AC-4]
+- [x] **6.6** Verify circuit-open errors are non-retryable and don't consume budget. [US-4 Retries AC-4]
   - Deps: 6.5, 5.2
   - Verify: Integration test.
-- [ ] **6.7** Write `test/engine/circuit-breaker.test.ts` — all transitions, generation, half-open probe selection (first by sequence). [testing.md]
+- [x] **6.7** Write `test/engine/circuit-breaker.test.ts` — all transitions, generation, half-open probe selection (first by sequence). [testing.md]
   - Deps: 6.4, 6.5
   - Verify: All tests pass.
 
