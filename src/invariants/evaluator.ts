@@ -1,17 +1,13 @@
 /**
  * Invariant Evaluator — evaluates 5 built-in invariant types against an EventLog.
  *
- * Counting rules:
- * - Max side-effect count: counts SideEffect events matching effectName.
- * - Max request count: counts RequestArrived events on a path (all deliveries).
- * - Required success count: counts ResponseReceived where success=true, late=false, deduplicated=false.
- * - Max completion time: checks final event timestamp.
- * - No pending requests: every RequestSent has a terminal (ResponseReceived, TimeoutError, CircuitOpenError).
- *
- * Late responses do NOT satisfy success or completion requirements.
+ * Evidence rules:
+ * - Every evidence entry references a real event (sequence + timestamp from the log).
+ * - Generic explanations go in the result `message` field, not in evidence.
+ * - Empty logs may produce empty evidence arrays.
  */
 
-import type { SimEvent, EventLog } from '../engine/types';
+import type { EventLog } from '../engine/types';
 import type { Invariant } from '../scenario/types';
 
 export interface InvariantEvidence {
@@ -26,6 +22,7 @@ export interface InvariantResult {
   passed: boolean;
   actual: number;
   threshold: number;
+  message: string;
   evidence: InvariantEvidence[];
 }
 
@@ -63,7 +60,17 @@ function evalMaxSideEffectCount(
         description: `SideEffect "${inv.effectName}" at t=${e.timestamp}`,
       }));
 
-  return { invariantId: inv.id, type: inv.type, passed, actual, threshold: inv.maxCount, evidence };
+  return {
+    invariantId: inv.id,
+    type: inv.type,
+    passed,
+    actual,
+    threshold: inv.maxCount,
+    message: passed
+      ? `Effect "${inv.effectName}" occurred ${actual} time(s), within limit of ${inv.maxCount}`
+      : `Effect "${inv.effectName}" occurred ${actual} time(s), exceeding limit of ${inv.maxCount}`,
+    evidence,
+  };
 }
 
 function evalMaxRequestCount(
@@ -81,14 +88,23 @@ function evalMaxRequestCount(
         description: `RequestArrived on path "${inv.pathId}" at t=${e.timestamp}`,
       }));
 
-  return { invariantId: inv.id, type: inv.type, passed, actual, threshold: inv.maxCount, evidence };
+  return {
+    invariantId: inv.id,
+    type: inv.type,
+    passed,
+    actual,
+    threshold: inv.maxCount,
+    message: passed
+      ? `Path "${inv.pathId}" received ${actual} request(s), within limit of ${inv.maxCount}`
+      : `Path "${inv.pathId}" received ${actual} request(s), exceeding limit of ${inv.maxCount}`,
+    evidence,
+  };
 }
 
 function evalRequiredSuccessCount(
   log: EventLog,
   inv: Extract<Invariant, { type: 'requiredSuccessCount' }>,
 ): InvariantResult {
-  // Count ResponseReceived where success=true, late=false, deduplicated=false
   const matching = log.filter(
     (e) =>
       e.type === 'ResponseReceived' &&
@@ -99,17 +115,50 @@ function evalRequiredSuccessCount(
   );
   const actual = matching.length;
   const passed = actual >= inv.minCount;
-  const evidence: InvariantEvidence[] = passed
-    ? []
-    : [
-        {
-          sequence: 0,
-          timestamp: 0,
-          description: `Required ${inv.minCount} successes on path "${inv.pathId}", found ${actual}`,
-        },
-      ];
 
-  return { invariantId: inv.id, type: inv.type, passed, actual, threshold: inv.minCount, evidence };
+  // For failures, reference terminal events that were NOT successes
+  // (timeouts, service errors, circuit-open errors) on this path
+  const evidence: InvariantEvidence[] = [];
+  if (!passed) {
+    for (const e of log) {
+      if (e.type === 'TimeoutError' && e.pathId === inv.pathId) {
+        evidence.push({
+          sequence: e.sequence,
+          timestamp: e.timestamp,
+          description: `TimeoutError on path "${inv.pathId}" at t=${e.timestamp}`,
+        });
+      } else if (
+        e.type === 'ResponseReceived' &&
+        e.pathId === inv.pathId &&
+        !e.success &&
+        !e.late
+      ) {
+        evidence.push({
+          sequence: e.sequence,
+          timestamp: e.timestamp,
+          description: `Service error response on path "${inv.pathId}" at t=${e.timestamp}`,
+        });
+      } else if (e.type === 'CircuitOpenError' && e.pathId === inv.pathId) {
+        evidence.push({
+          sequence: e.sequence,
+          timestamp: e.timestamp,
+          description: `CircuitOpenError on path "${inv.pathId}" at t=${e.timestamp}`,
+        });
+      }
+    }
+  }
+
+  return {
+    invariantId: inv.id,
+    type: inv.type,
+    passed,
+    actual,
+    threshold: inv.minCount,
+    message: passed
+      ? `Path "${inv.pathId}" completed ${actual} success(es), meeting requirement of ${inv.minCount}`
+      : `Path "${inv.pathId}" completed ${actual} success(es), below requirement of ${inv.minCount}`,
+    evidence,
+  };
 }
 
 function evalMaxCompletionTime(
@@ -119,28 +168,34 @@ function evalMaxCompletionTime(
   const lastEvent = log.length > 0 ? log[log.length - 1]! : undefined;
   const actual = lastEvent?.timestamp ?? 0;
   const passed = actual <= inv.maxMs;
-  const evidence: InvariantEvidence[] = passed
-    ? []
-    : lastEvent
+  const evidence: InvariantEvidence[] =
+    !passed && lastEvent
       ? [
           {
             sequence: lastEvent.sequence,
             timestamp: lastEvent.timestamp,
-            description: `Simulation completed at t=${actual}ms, exceeds limit ${inv.maxMs}ms`,
+            description: `Final event at t=${actual}ms exceeds limit of ${inv.maxMs}ms`,
           },
         ]
       : [];
 
-  return { invariantId: inv.id, type: inv.type, passed, actual, threshold: inv.maxMs, evidence };
+  return {
+    invariantId: inv.id,
+    type: inv.type,
+    passed,
+    actual,
+    threshold: inv.maxMs,
+    message: passed
+      ? `Simulation completed at t=${actual}ms, within limit of ${inv.maxMs}ms`
+      : `Simulation completed at t=${actual}ms, exceeding limit of ${inv.maxMs}ms`,
+    evidence,
+  };
 }
 
 function evalNoPendingRequests(
   log: EventLog,
   inv: Extract<Invariant, { type: 'noPendingRequests' }>,
 ): InvariantResult {
-  // Every RequestSent must have a terminal event:
-  // ResponseReceived (any), TimeoutError, or CircuitOpenError
-  const sent = log.filter((e) => e.type === 'RequestSent');
   const terminals = new Set<string>();
 
   for (const e of log) {
@@ -153,23 +208,32 @@ function evalNoPendingRequests(
     }
   }
 
-  const pending: SimEvent[] = [];
-  for (const s of sent) {
-    if (s.type === 'RequestSent') {
-      const key = `${s.operationId}:${s.attempt}`;
+  const evidence: InvariantEvidence[] = [];
+  for (const e of log) {
+    if (e.type === 'RequestSent') {
+      const key = `${e.operationId}:${e.attempt}`;
       if (!terminals.has(key)) {
-        pending.push(s);
+        evidence.push({
+          sequence: e.sequence,
+          timestamp: e.timestamp,
+          description: `RequestSent (op=${e.operationId}, attempt=${e.attempt}) has no terminal event`,
+        });
       }
     }
   }
 
-  const actual = pending.length;
+  const actual = evidence.length;
   const passed = actual === 0;
-  const evidence: InvariantEvidence[] = pending.map((e) => ({
-    sequence: e.sequence,
-    timestamp: e.timestamp,
-    description: `RequestSent (op=${(e as { operationId: number }).operationId}, attempt=${(e as { attempt: number }).attempt}) has no terminal event`,
-  }));
 
-  return { invariantId: inv.id, type: inv.type, passed, actual, threshold: 0, evidence };
+  return {
+    invariantId: inv.id,
+    type: inv.type,
+    passed,
+    actual,
+    threshold: 0,
+    message: passed
+      ? 'All requests have terminal events'
+      : `${actual} request(s) have no terminal event`,
+    evidence,
+  };
 }

@@ -106,24 +106,23 @@ describe('Property: metrics determinism and non-negative', () => {
 });
 
 describe('Property: valid evidence references', () => {
-  it('evidence sequences exist in the event log', () => {
+  it('every evidence sequence+timestamp exists in the event log', () => {
     fc.assert(
       fc.property(fc.nat({ max: 4294967295 }), (seed) => {
         const scenario = makeScenario(seed);
         const log = simulateScenario(scenario).events;
         const results = evaluateInvariants(log, scenario.invariants);
-        const logSequences = new Set(log.map((e) => e.sequence));
+        const logEntries = new Map(log.map((e) => [e.sequence, e.timestamp]));
 
         for (const r of results) {
           for (const ev of r.evidence) {
-            if (ev.sequence !== 0) {
-              // sequence 0 is used for generic messages
-              expect(logSequences.has(ev.sequence)).toBe(true);
-            }
+            // Every evidence entry must reference a real event
+            expect(logEntries.has(ev.sequence)).toBe(true);
+            expect(logEntries.get(ev.sequence)).toBe(ev.timestamp);
           }
         }
       }),
-      { numRuns: 50 },
+      { numRuns: 100 },
     );
   });
 });
