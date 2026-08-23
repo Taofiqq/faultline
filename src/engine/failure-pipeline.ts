@@ -1,7 +1,9 @@
 /**
  * Failure Pipeline — Multi-event transitions T1–T4.
  *
- * M6: Adds network duplication, simulated service errors, circuit breakers.
+ * Full attempt/deliveryIndex correlation. All circuit transitions logged.
+ * Service errors evaluated before side-effects and never cached.
+ * Network duplication independent of retries.
  */
 
 import type { SimEvent } from './types';
@@ -16,7 +18,7 @@ import {
   recordOutcome,
 } from './circuit-breaker';
 
-// ─── Internal Event: Deadline Check ──────────────────────────────────────────
+// ─── Internal Event ──────────────────────────────────────────────────────────
 
 export interface DeadlineCheckEvent {
   type: '_DeadlineCheck';
@@ -31,7 +33,7 @@ export interface DeadlineCheckEvent {
 
 export type QueueEvent = SimEvent | DeadlineCheckEvent;
 
-// ─── Operation State ─────────────────────────────────────────────────────────
+// ─── State ───────────────────────────────────────────────────────────────────
 
 export interface OperationAttemptState {
   operationId: number;
@@ -54,12 +56,12 @@ export interface PipelineState {
   budgets: Map<number, OperationBudget>;
   paths: Map<string, Path>;
   idempotency: IdempotencyRegistry;
-  circuits: Map<string, CircuitBreakerState>; // pathId → circuit state
+  circuits: Map<string, CircuitBreakerState>;
   nextOperationId: number;
 }
 
-function attemptKey(operationId: number, attempt: number, deliveryIndex: number): string {
-  return `${operationId}:${attempt}:${deliveryIndex}`;
+function attemptKey(opId: number, attempt: number, delivery: number): string {
+  return `${opId}:${attempt}:${delivery}`;
 }
 
 export function createPipelineState(scenario: Scenario): PipelineState {
@@ -81,7 +83,7 @@ export function createPipelineState(scenario: Scenario): PipelineState {
   };
 }
 
-// ─── Pipeline Processor Result ───────────────────────────────────────────────
+// ─── Result ──────────────────────────────────────────────────────────────────
 
 export interface ProcessResult {
   enqueue: QueueEvent[];
@@ -89,42 +91,55 @@ export interface ProcessResult {
   logAs?: SimEvent;
 }
 
-// ─── T1: RequestSent → RequestArrived ────────────────────────────────────────
-// (1) Circuit check
-// (2) Apply request latency
-// (3) Network duplication — fork N-1 copies
+// ─── T1: RequestSent ─────────────────────────────────────────────────────────
 
 function processRequestSent(
   event: Extract<SimEvent, { type: 'RequestSent' }>,
   state: PipelineState,
   prng: PRNG,
-  nextSequence: () => number,
+  nextSeq: () => number,
 ): ProcessResult {
   const path = state.paths.get(event.pathId);
   if (!path) return { enqueue: [], log: true };
 
-  // (1) Circuit check
   const circuitState = state.circuits.get(event.pathId);
-  const circuitConfig = path.resilience.circuitBreaker;
+  const cbConfig = path.resilience.circuitBreaker;
   let circuitGen = circuitState?.generation ?? 0;
+  const enqueue: QueueEvent[] = [];
 
-  if (circuitState && circuitConfig) {
-    const decision = checkCircuit(circuitState, circuitConfig, event.timestamp, event.sequence);
+  // Circuit check
+  if (circuitState && cbConfig) {
+    const prevStatus = circuitState.status;
+    const decision = checkCircuit(circuitState, cbConfig, event.timestamp, event.sequence);
+
+    // Emit open→half-open transition
+    if (prevStatus === 'open' && circuitState.status === 'half-open') {
+      enqueue.push({
+        type: 'CircuitStateChange',
+        timestamp: event.timestamp,
+        sequence: nextSeq(),
+        pathId: event.pathId,
+        newState: 'half-open',
+        generation: circuitState.generation,
+      });
+    }
+
     if (decision === 'reject') {
-      // Emit CircuitOpenError — immediate, non-retryable
-      const errorEvent: SimEvent = {
+      enqueue.push({
         type: 'CircuitOpenError',
         timestamp: event.timestamp,
-        sequence: nextSequence(),
+        sequence: nextSeq(),
         pathId: event.pathId,
         operationId: event.operationId,
-      };
-      return { enqueue: [errorEvent], log: true };
+        attempt: event.attempt,
+        deliveryIndex: event.deliveryIndex,
+      });
+      return { enqueue, log: true };
     }
     circuitGen = circuitState.generation;
   }
 
-  // Track this attempt
+  // Track attempt
   const key = attemptKey(event.operationId, event.attempt, event.deliveryIndex);
   state.attempts.set(key, {
     operationId: event.operationId,
@@ -137,7 +152,7 @@ function processRequestSent(
     circuitGeneration: circuitGen,
   });
 
-  // Initialize retry budget on first attempt
+  // Init retry budget (once per operation)
   if (event.attempt === 0 && event.deliveryIndex === 0 && path.resilience.retry) {
     state.budgets.set(event.operationId, {
       maxRetries: path.resilience.retry.maxRetries,
@@ -145,38 +160,31 @@ function processRequestSent(
     });
   }
 
-  // (2) Calculate request latency
-  let requestLatency = 0;
-  for (const failure of path.failures) {
-    if (failure.type === 'fixedLatency') {
-      if (prng.nextFloat() < failure.probability) {
-        requestLatency += failure.ms;
-      }
-    } else if (failure.type === 'randomLatency') {
-      if (prng.nextFloat() < failure.probability) {
-        requestLatency += prng.nextRange(Math.round(failure.minMs), Math.round(failure.maxMs));
-      }
+  // Request latency
+  let latency = 0;
+  for (const f of path.failures) {
+    if (f.type === 'fixedLatency' && prng.nextFloat() < f.probability) {
+      latency += f.ms;
+    } else if (f.type === 'randomLatency' && prng.nextFloat() < f.probability) {
+      latency += prng.nextRange(Math.round(f.minMs), Math.round(f.maxMs));
     }
   }
 
-  const arrivalTime = event.timestamp + requestLatency;
-  const enqueue: QueueEvent[] = [];
-
-  // (3) Network duplication — check for duplicateRequest injection
+  // Network duplication
   let totalDeliveries = 1;
-  for (const failure of path.failures) {
-    if (failure.type === 'duplicateRequest') {
-      if (prng.nextFloat() < failure.probability) {
-        totalDeliveries = failure.count; // original + (count-1) copies
-      }
+  for (const f of path.failures) {
+    if (f.type === 'duplicateRequest' && prng.nextFloat() < f.probability) {
+      totalDeliveries = f.count;
     }
   }
 
-  // Emit RequestArrived for original (deliveryIndex=0)
+  const arrivalTime = event.timestamp + latency;
+
+  // Original delivery
   enqueue.push({
     type: 'RequestArrived',
     timestamp: arrivalTime,
-    sequence: nextSequence(),
+    sequence: nextSeq(),
     pathId: event.pathId,
     operationId: event.operationId,
     idempotencyKey: event.idempotencyKey,
@@ -185,11 +193,9 @@ function processRequestSent(
     deduplicated: false,
   });
 
-  // Fork N-1 copies (deliveryIndex 1..N-1)
+  // Copies
   for (let d = 1; d < totalDeliveries; d++) {
-    // Track each delivery's attempt state
-    const dupKey = attemptKey(event.operationId, event.attempt, d);
-    state.attempts.set(dupKey, {
+    state.attempts.set(attemptKey(event.operationId, event.attempt, d), {
       operationId: event.operationId,
       pathId: event.pathId,
       attempt: event.attempt,
@@ -199,11 +205,10 @@ function processRequestSent(
       resolved: false,
       circuitGeneration: circuitGen,
     });
-
     enqueue.push({
       type: 'RequestArrived',
       timestamp: arrivalTime,
-      sequence: nextSequence(),
+      sequence: nextSeq(),
       pathId: event.pathId,
       operationId: event.operationId,
       idempotencyKey: event.idempotencyKey,
@@ -213,12 +218,12 @@ function processRequestSent(
     });
   }
 
-  // Schedule deadline check (one per attempt, not per delivery)
+  // Deadline (once per attempt)
   if (event.deliveryIndex === 0) {
     enqueue.push({
       type: '_DeadlineCheck',
       timestamp: event.timestamp + path.deadlineMs,
-      sequence: nextSequence(),
+      sequence: nextSeq(),
       pathId: event.pathId,
       operationId: event.operationId,
       attempt: event.attempt,
@@ -230,56 +235,52 @@ function processRequestSent(
   return { enqueue, log: true };
 }
 
-// ─── T2: RequestArrived → Process ────────────────────────────────────────────
-// (4a) Service error check
-// (4b) Idempotency check
-// (4c) Process: side-effect + ResponseSent
+// ─── T2: RequestArrived ──────────────────────────────────────────────────────
 
 function processRequestArrived(
   event: Extract<SimEvent, { type: 'RequestArrived' }>,
   state: PipelineState,
   prng: PRNG,
-  nextSequence: () => number,
+  nextSeq: () => number,
 ): ProcessResult {
   const path = state.paths.get(event.pathId);
   if (!path) return { enqueue: [], log: true };
-
   const enqueue: QueueEvent[] = [];
 
-  // (4a) Service error check — before idempotency and side-effect
-  for (const failure of path.failures) {
-    if (failure.type === 'serviceError') {
-      if (prng.nextFloat() < failure.probability) {
-        // Service error — no side-effect, not cached, retryable
-        enqueue.push({
-          type: 'ResponseSent',
-          timestamp: event.timestamp,
-          sequence: nextSequence(),
-          pathId: event.pathId,
-          operationId: event.operationId,
-          success: false,
-          deduplicated: false,
-        });
-        return { enqueue, log: true };
-      }
+  // Service error (before idempotency and side-effect)
+  for (const f of path.failures) {
+    if (f.type === 'serviceError' && prng.nextFloat() < f.probability) {
+      enqueue.push({
+        type: 'ResponseSent',
+        timestamp: event.timestamp,
+        sequence: nextSeq(),
+        pathId: event.pathId,
+        operationId: event.operationId,
+        attempt: event.attempt,
+        deliveryIndex: event.deliveryIndex,
+        success: false,
+        deduplicated: false,
+      });
+      return { enqueue, log: true };
     }
   }
 
-  // (4b) Idempotency check
+  // Idempotency check
   if (path.resilience.idempotencyEnabled) {
     const idempKey = IdempotencyRegistry.buildKey(
       path.destination,
       path.operationName,
       event.idempotencyKey,
     );
-    const cached = state.idempotency.lookup(idempKey);
-    if (cached) {
+    if (state.idempotency.lookup(idempKey)) {
       enqueue.push({
         type: 'ResponseSent',
         timestamp: event.timestamp,
-        sequence: nextSequence(),
+        sequence: nextSeq(),
         pathId: event.pathId,
         operationId: event.operationId,
+        attempt: event.attempt,
+        deliveryIndex: event.deliveryIndex,
         success: true,
         deduplicated: true,
       });
@@ -287,19 +288,21 @@ function processRequestArrived(
     }
   }
 
-  // (4c) Process: emit side-effect if configured
+  // Side-effect
   if (path.sideEffect) {
     enqueue.push({
       type: 'SideEffect',
       timestamp: event.timestamp,
-      sequence: nextSequence(),
+      sequence: nextSeq(),
       serviceId: path.destination,
       effectName: path.sideEffect,
       operationId: event.operationId,
+      attempt: event.attempt,
+      deliveryIndex: event.deliveryIndex,
     });
   }
 
-  // Store in idempotency registry (success-only)
+  // Cache success
   if (path.resilience.idempotencyEnabled) {
     const idempKey = IdempotencyRegistry.buildKey(
       path.destination,
@@ -309,13 +312,15 @@ function processRequestArrived(
     state.idempotency.store(idempKey, { success: true });
   }
 
-  // Emit ResponseSent (success)
+  // ResponseSent
   enqueue.push({
     type: 'ResponseSent',
     timestamp: event.timestamp,
-    sequence: nextSequence(),
+    sequence: nextSeq(),
     pathId: event.pathId,
     operationId: event.operationId,
+    attempt: event.attempt,
+    deliveryIndex: event.deliveryIndex,
     success: true,
     deduplicated: false,
   });
@@ -323,202 +328,257 @@ function processRequestArrived(
   return { enqueue, log: true };
 }
 
-// ─── T3: ResponseSent → ResponseReceived ─────────────────────────────────────
+// ─── T3: ResponseSent ────────────────────────────────────────────────────────
 
 function processResponseSent(
   event: Extract<SimEvent, { type: 'ResponseSent' }>,
   state: PipelineState,
   prng: PRNG,
-  nextSequence: () => number,
+  nextSeq: () => number,
 ): ProcessResult {
   const path = state.paths.get(event.pathId);
   if (!path) return { enqueue: [], log: true };
 
-  // Check for response loss (only for successful responses or all?)
-  // Per spec: loss applies to any response on the path
-  for (const failure of path.failures) {
-    if (failure.type === 'lostResponse') {
-      if (prng.nextFloat() < failure.probability) {
-        const enqueue: QueueEvent[] = [
+  // Response loss
+  for (const f of path.failures) {
+    if (f.type === 'lostResponse' && prng.nextFloat() < f.probability) {
+      return {
+        enqueue: [
           {
             type: 'ResponseLost',
             timestamp: event.timestamp,
-            sequence: nextSequence(),
+            sequence: nextSeq(),
             pathId: event.pathId,
             operationId: event.operationId,
+            attempt: event.attempt,
+            deliveryIndex: event.deliveryIndex,
           },
-        ];
-        return { enqueue, log: true };
-      }
+        ],
+        log: true,
+      };
     }
   }
 
-  // Calculate response latency
-  let responseLatency = 0;
-  for (const failure of path.failures) {
-    if (failure.type === 'fixedLatency') {
-      if (prng.nextFloat() < failure.probability) {
-        responseLatency += failure.ms;
-      }
-    } else if (failure.type === 'randomLatency') {
-      if (prng.nextFloat() < failure.probability) {
-        responseLatency += prng.nextRange(Math.round(failure.minMs), Math.round(failure.maxMs));
-      }
+  // Response latency
+  let latency = 0;
+  for (const f of path.failures) {
+    if (f.type === 'fixedLatency' && prng.nextFloat() < f.probability) {
+      latency += f.ms;
+    } else if (f.type === 'randomLatency' && prng.nextFloat() < f.probability) {
+      latency += prng.nextRange(Math.round(f.minMs), Math.round(f.maxMs));
     }
   }
 
-  // Find the relevant attempt state for latency calculation
-  let sentAt = 0;
-  for (const [, attempt] of state.attempts) {
-    if (attempt.operationId === event.operationId && attempt.pathId === event.pathId) {
-      sentAt = attempt.sentAt;
-      break; // Use the first matching (all share the same sentAt within an attempt)
-    }
-  }
+  const key = attemptKey(event.operationId, event.attempt, event.deliveryIndex);
+  const attemptState = state.attempts.get(key);
+  const sentAt = attemptState?.sentAt ?? 0;
+  const receiveTime = event.timestamp + latency;
 
-  const receiveTime = event.timestamp + responseLatency;
-  const totalLatency = receiveTime - sentAt;
-
-  const enqueue: QueueEvent[] = [
-    {
-      type: 'ResponseReceived',
-      timestamp: receiveTime,
-      sequence: nextSequence(),
-      pathId: event.pathId,
-      operationId: event.operationId,
-      success: event.success,
-      deduplicated: event.deduplicated,
-      late: false,
-      latency: totalLatency,
-    },
-  ];
-
-  return { enqueue, log: true };
+  return {
+    enqueue: [
+      {
+        type: 'ResponseReceived',
+        timestamp: receiveTime,
+        sequence: nextSeq(),
+        pathId: event.pathId,
+        operationId: event.operationId,
+        attempt: event.attempt,
+        deliveryIndex: event.deliveryIndex,
+        success: event.success,
+        deduplicated: event.deduplicated,
+        late: false,
+        latency: receiveTime - sentAt,
+      },
+    ],
+    log: true,
+  };
 }
 
-// ─── T4: ResponseReceived ────────────────────────────────────────────────────
-// Circuit state is updated once per caller-visible attempt outcome (not per delivery).
+// ─── T4: ResponseReceived (success) ──────────────────────────────────────────
 
-function processResponseReceived(
+function processSuccessResponse(
   event: Extract<SimEvent, { type: 'ResponseReceived' }>,
   state: PipelineState,
+  nextSeq: () => number,
 ): ProcessResult {
-  // Find the primary attempt state (deliveryIndex=0 for this attempt level)
-  let primaryAttempt: OperationAttemptState | undefined;
-  for (const [, attempt] of state.attempts) {
-    if (
-      attempt.operationId === event.operationId &&
-      attempt.pathId === event.pathId &&
-      attempt.deliveryIndex === 0
-    ) {
-      if (!primaryAttempt || attempt.attempt > primaryAttempt.attempt) {
-        primaryAttempt = attempt;
-      }
-    }
-  }
+  // Resolve against the primary (deliveryIndex=0) of THIS attempt
+  const primaryKey = attemptKey(event.operationId, event.attempt, 0);
+  const primary = state.attempts.get(primaryKey);
 
-  if (!primaryAttempt || primaryAttempt.resolved) {
-    // Already resolved — late response
+  if (!primary || primary.resolved) {
     return { enqueue: [], log: true, logAs: { ...event, late: true } };
   }
 
-  // Mark the primary attempt as resolved
-  primaryAttempt.resolved = true;
-
-  // Update circuit breaker state (once per caller-visible outcome)
-  const circuitState = state.circuits.get(event.pathId);
-  const path = state.paths.get(event.pathId);
-  if (circuitState && path?.resilience.circuitBreaker) {
-    recordOutcome(
-      circuitState,
-      path.resilience.circuitBreaker,
-      primaryAttempt.circuitGeneration,
-      event.success,
-      event.timestamp,
-    );
-  }
-
-  return { enqueue: [], log: true };
-}
-
-// ─── Internal: DeadlineCheck → TimeoutError + optional Retry ─────────────────
-
-function processDeadlineCheck(
-  event: DeadlineCheckEvent,
-  state: PipelineState,
-  prng: PRNG,
-  nextSequence: () => number,
-): ProcessResult {
-  const key = attemptKey(event.operationId, event.attempt, event.deliveryIndex);
-  const attemptState = state.attempts.get(key);
-
-  if (!attemptState || attemptState.resolved) {
-    return { enqueue: [], log: false };
-  }
-
-  // Timeout fires
-  attemptState.resolved = true;
-
+  primary.resolved = true;
   const enqueue: QueueEvent[] = [];
 
-  // Emit TimeoutError
-  const timeoutEvent: SimEvent = {
-    type: 'TimeoutError',
-    timestamp: event.timestamp,
-    sequence: nextSequence(),
-    pathId: event.pathId,
-    operationId: event.operationId,
-    attempt: event.attempt,
-  };
-  enqueue.push(timeoutEvent);
-
-  // Update circuit breaker (timeout = failure)
-  const circuitState = state.circuits.get(event.pathId);
+  // Circuit breaker update
+  const cs = state.circuits.get(event.pathId);
   const path = state.paths.get(event.pathId);
-  if (circuitState && path?.resilience.circuitBreaker) {
-    const result = recordOutcome(
-      circuitState,
+  if (cs && path?.resilience.circuitBreaker) {
+    const r = recordOutcome(
+      cs,
       path.resilience.circuitBreaker,
-      event.circuitGeneration,
-      false,
+      primary.circuitGeneration,
+      true,
       event.timestamp,
     );
-    if (result.stateChanged && result.newState) {
+    if (r.stateChanged && r.newState) {
       enqueue.push({
         type: 'CircuitStateChange',
         timestamp: event.timestamp,
-        sequence: nextSequence(),
+        sequence: nextSeq(),
         pathId: event.pathId,
-        newState: result.newState,
-        generation: circuitState.generation,
+        newState: r.newState,
+        generation: cs.generation,
       });
     }
   }
 
-  // Check retry budget (timeout is retryable)
+  return { enqueue, log: true };
+}
+
+// ─── T4: ResponseReceived (error) ────────────────────────────────────────────
+
+function processErrorResponse(
+  event: Extract<SimEvent, { type: 'ResponseReceived' }>,
+  state: PipelineState,
+  prng: PRNG,
+  nextSeq: () => number,
+): ProcessResult {
+  const primaryKey = attemptKey(event.operationId, event.attempt, 0);
+  const primary = state.attempts.get(primaryKey);
+
+  if (!primary || primary.resolved) {
+    return { enqueue: [], log: true, logAs: { ...event, late: true } };
+  }
+
+  primary.resolved = true;
+  const enqueue: QueueEvent[] = [];
+
+  // Circuit breaker update (failure)
+  const cs = state.circuits.get(event.pathId);
+  const path = state.paths.get(event.pathId);
+  if (cs && path?.resilience.circuitBreaker) {
+    const r = recordOutcome(
+      cs,
+      path.resilience.circuitBreaker,
+      primary.circuitGeneration,
+      false,
+      event.timestamp,
+    );
+    if (r.stateChanged && r.newState) {
+      enqueue.push({
+        type: 'CircuitStateChange',
+        timestamp: event.timestamp,
+        sequence: nextSeq(),
+        pathId: event.pathId,
+        newState: r.newState,
+        generation: cs.generation,
+      });
+    }
+  }
+
+  // Retry (service error is retryable)
   const budget = state.budgets.get(event.operationId);
   if (path?.resilience.retry && budget && budget.retriesUsed < budget.maxRetries) {
     budget.retriesUsed++;
     const nextAttempt = event.attempt + 1;
     const delay = computeRetryDelay(event.attempt, path.resilience.retry, prng);
-
     enqueue.push({
       type: 'RetryScheduled',
       timestamp: event.timestamp,
-      sequence: nextSequence(),
+      sequence: nextSeq(),
       pathId: event.pathId,
       operationId: event.operationId,
       nextAttempt,
       delay,
     });
-
     enqueue.push({
       type: 'RequestSent',
       timestamp: event.timestamp + delay,
-      sequence: nextSequence(),
+      sequence: nextSeq(),
       pathId: event.pathId,
       operationId: event.operationId,
-      idempotencyKey: attemptState.idempotencyKey,
+      idempotencyKey: primary.idempotencyKey,
+      attempt: nextAttempt,
+      deliveryIndex: 0,
+    });
+  }
+
+  return { enqueue, log: true };
+}
+
+// ─── DeadlineCheck → Timeout + optional Retry ────────────────────────────────
+
+function processDeadlineCheck(
+  event: DeadlineCheckEvent,
+  state: PipelineState,
+  prng: PRNG,
+  nextSeq: () => number,
+): ProcessResult {
+  const key = attemptKey(event.operationId, event.attempt, event.deliveryIndex);
+  const attempt = state.attempts.get(key);
+
+  if (!attempt || attempt.resolved) return { enqueue: [], log: false };
+
+  attempt.resolved = true;
+  const enqueue: QueueEvent[] = [];
+
+  enqueue.push({
+    type: 'TimeoutError',
+    timestamp: event.timestamp,
+    sequence: nextSeq(),
+    pathId: event.pathId,
+    operationId: event.operationId,
+    attempt: event.attempt,
+  });
+
+  // Circuit breaker (timeout = failure)
+  const cs = state.circuits.get(event.pathId);
+  const path = state.paths.get(event.pathId);
+  if (cs && path?.resilience.circuitBreaker) {
+    const r = recordOutcome(
+      cs,
+      path.resilience.circuitBreaker,
+      event.circuitGeneration,
+      false,
+      event.timestamp,
+    );
+    if (r.stateChanged && r.newState) {
+      enqueue.push({
+        type: 'CircuitStateChange',
+        timestamp: event.timestamp,
+        sequence: nextSeq(),
+        pathId: event.pathId,
+        newState: r.newState,
+        generation: cs.generation,
+      });
+    }
+  }
+
+  // Retry
+  const budget = state.budgets.get(event.operationId);
+  if (path?.resilience.retry && budget && budget.retriesUsed < budget.maxRetries) {
+    budget.retriesUsed++;
+    const nextAttempt = event.attempt + 1;
+    const delay = computeRetryDelay(event.attempt, path.resilience.retry, prng);
+    enqueue.push({
+      type: 'RetryScheduled',
+      timestamp: event.timestamp,
+      sequence: nextSeq(),
+      pathId: event.pathId,
+      operationId: event.operationId,
+      nextAttempt,
+      delay,
+    });
+    enqueue.push({
+      type: 'RequestSent',
+      timestamp: event.timestamp + delay,
+      sequence: nextSeq(),
+      pathId: event.pathId,
+      operationId: event.operationId,
+      idempotencyKey: attempt.idempotencyKey,
       attempt: nextAttempt,
       deliveryIndex: 0,
     });
@@ -527,113 +587,27 @@ function processDeadlineCheck(
   return { enqueue, log: false };
 }
 
-// ─── T4 (service error received): update circuit + schedule retry ─────────────
-
-function processServiceErrorReceived(
-  event: Extract<SimEvent, { type: 'ResponseReceived' }>,
-  state: PipelineState,
-  prng: PRNG,
-  nextSequence: () => number,
-): ProcessResult {
-  // Find the primary attempt
-  let primaryAttempt: OperationAttemptState | undefined;
-  for (const [, attempt] of state.attempts) {
-    if (
-      attempt.operationId === event.operationId &&
-      attempt.pathId === event.pathId &&
-      attempt.deliveryIndex === 0
-    ) {
-      if (!primaryAttempt || attempt.attempt > primaryAttempt.attempt) {
-        primaryAttempt = attempt;
-      }
-    }
-  }
-
-  if (!primaryAttempt || primaryAttempt.resolved) {
-    return { enqueue: [], log: true, logAs: { ...event, late: true } };
-  }
-
-  primaryAttempt.resolved = true;
-  const enqueue: QueueEvent[] = [];
-
-  // Update circuit breaker (service error = failure)
-  const circuitState = state.circuits.get(event.pathId);
-  const path = state.paths.get(event.pathId);
-  if (circuitState && path?.resilience.circuitBreaker) {
-    const result = recordOutcome(
-      circuitState,
-      path.resilience.circuitBreaker,
-      primaryAttempt.circuitGeneration,
-      false,
-      event.timestamp,
-    );
-    if (result.stateChanged && result.newState) {
-      enqueue.push({
-        type: 'CircuitStateChange',
-        timestamp: event.timestamp,
-        sequence: nextSequence(),
-        pathId: event.pathId,
-        newState: result.newState,
-        generation: circuitState.generation,
-      });
-    }
-  }
-
-  // Service error is retryable
-  const budget = state.budgets.get(event.operationId);
-  if (path?.resilience.retry && budget && budget.retriesUsed < budget.maxRetries) {
-    budget.retriesUsed++;
-    const nextAttempt = primaryAttempt.attempt + 1;
-    const delay = computeRetryDelay(primaryAttempt.attempt, path.resilience.retry, prng);
-
-    enqueue.push({
-      type: 'RetryScheduled',
-      timestamp: event.timestamp,
-      sequence: nextSequence(),
-      pathId: event.pathId,
-      operationId: event.operationId,
-      nextAttempt,
-      delay,
-    });
-
-    enqueue.push({
-      type: 'RequestSent',
-      timestamp: event.timestamp + delay,
-      sequence: nextSequence(),
-      pathId: event.pathId,
-      operationId: event.operationId,
-      idempotencyKey: primaryAttempt.idempotencyKey,
-      attempt: nextAttempt,
-      deliveryIndex: 0,
-    });
-  }
-
-  return { enqueue, log: true };
-}
-
-// ─── Main Dispatcher ─────────────────────────────────────────────────────────
+// ─── Dispatcher ──────────────────────────────────────────────────────────────
 
 export function processPipelineEvent(
   event: QueueEvent,
   state: PipelineState,
   prng: PRNG,
-  nextSequence: () => number,
+  nextSeq: () => number,
 ): ProcessResult {
   switch (event.type) {
     case 'RequestSent':
-      return processRequestSent(event, state, prng, nextSequence);
+      return processRequestSent(event, state, prng, nextSeq);
     case 'RequestArrived':
-      return processRequestArrived(event, state, prng, nextSequence);
+      return processRequestArrived(event, state, prng, nextSeq);
     case 'ResponseSent':
-      return processResponseSent(event, state, prng, nextSequence);
+      return processResponseSent(event, state, prng, nextSeq);
     case 'ResponseReceived':
-      // Route based on success/failure
-      if (!event.success) {
-        return processServiceErrorReceived(event, state, prng, nextSequence);
-      }
-      return processResponseReceived(event, state);
+      return event.success
+        ? processSuccessResponse(event, state, nextSeq)
+        : processErrorResponse(event, state, prng, nextSeq);
     case '_DeadlineCheck':
-      return processDeadlineCheck(event, state, prng, nextSequence);
+      return processDeadlineCheck(event, state, prng, nextSeq);
     default:
       return { enqueue: [], log: true };
   }

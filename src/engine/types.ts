@@ -32,6 +32,8 @@ export interface SideEffectEvent {
   serviceId: string;
   effectName: string;
   operationId: number;
+  attempt: number;
+  deliveryIndex: number;
 }
 
 export interface ResponseSentEvent {
@@ -40,6 +42,8 @@ export interface ResponseSentEvent {
   sequence: number;
   pathId: string;
   operationId: number;
+  attempt: number;
+  deliveryIndex: number;
   success: boolean;
   deduplicated: boolean;
 }
@@ -50,6 +54,8 @@ export interface ResponseReceivedEvent {
   sequence: number;
   pathId: string;
   operationId: number;
+  attempt: number;
+  deliveryIndex: number;
   success: boolean;
   deduplicated: boolean;
   late: boolean;
@@ -62,6 +68,8 @@ export interface ResponseLostEvent {
   sequence: number;
   pathId: string;
   operationId: number;
+  attempt: number;
+  deliveryIndex: number;
 }
 
 export interface TimeoutErrorEvent {
@@ -79,6 +87,8 @@ export interface CircuitOpenErrorEvent {
   sequence: number;
   pathId: string;
   operationId: number;
+  attempt: number;
+  deliveryIndex: number;
 }
 
 export interface CircuitStateChangeEvent {
