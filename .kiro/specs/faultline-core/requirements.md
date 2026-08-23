@@ -207,17 +207,17 @@ Each request traverses this pipeline in order:
 
 ## Non-Functional Requirements
 
-| ID | Category | Requirement |
-|----|----------|-------------|
-| NFR-1 | Performance | 100 concurrently in-flight requests, each with up to 3 retries, simulated in < 2 s excluding rendering (baseline: 4-core / 8 GB modern desktop, no CPU throttling). |
-| NFR-2 | Determinism | All randomness derived from a seedable PRNG (unsigned 32-bit seed). No non-deterministic APIs during simulation. |
-| NFR-3 | Portability | Runs entirely client-side; no server component for core simulation. |
-| NFR-4 | Bundle Size | Initial JavaScript bundle ≤ 500 KB gzipped, excluding source maps. |
-| NFR-5 | Accessibility | UI meets WCAG 2.1 AA; timeline and graph are keyboard-navigable with screen-reader descriptions. |
-| NFR-6 | Browser Support | Latest two major versions of Chrome, Firefox, Safari, and Edge. |
-| NFR-7 | Testability | Core simulation engine unit-testable independent of UI; ≥ 90 % branch coverage target. |
-| NFR-8 | Schema | Exported JSON uses schema version 1 (semver). Only version 1 is supported in v1; future breaking changes increment the major version. |
-| NFR-9 | Safety Limits | Simulation stops at maxSimulationTimeMs (default 60,000) or 100,000 events, whichever comes first. |
+| ID    | Category        | Requirement                                                                                                                                                         |
+| ----- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NFR-1 | Performance     | 100 concurrently in-flight requests, each with up to 3 retries, simulated in < 2 s excluding rendering (baseline: 4-core / 8 GB modern desktop, no CPU throttling). |
+| NFR-2 | Determinism     | All randomness derived from a seedable PRNG (unsigned 32-bit seed). No non-deterministic APIs during simulation.                                                    |
+| NFR-3 | Portability     | Runs entirely client-side; no server component for core simulation.                                                                                                 |
+| NFR-4 | Bundle Size     | Initial JavaScript bundle ≤ 500 KB gzipped, excluding source maps.                                                                                                  |
+| NFR-5 | Accessibility   | UI meets WCAG 2.1 AA; timeline and graph are keyboard-navigable with screen-reader descriptions.                                                                    |
+| NFR-6 | Browser Support | Latest two major versions of Chrome, Firefox, Safari, and Edge.                                                                                                     |
+| NFR-7 | Testability     | Core simulation engine unit-testable independent of UI; ≥ 90 % branch coverage target.                                                                              |
+| NFR-8 | Schema          | Exported JSON uses schema version 1 (semver). Only version 1 is supported in v1; future breaking changes increment the major version.                               |
+| NFR-9 | Safety Limits   | Simulation stops at maxSimulationTimeMs (default 60,000) or 100,000 events, whichever comes first.                                                                  |
 
 ---
 

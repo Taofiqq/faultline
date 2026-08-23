@@ -27,14 +27,14 @@ Time-to-insight: < 30 seconds from page load.
 
 ## Success Criteria
 
-| Metric | Target |
-|--------|--------|
+| Metric                 | Target                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------ |
 | Simulation correctness | Same seed always produces identical normalized event sequence (cross-browser). |
-| Performance | 100 in-flight requests × 3 retries simulated in < 2 s (excluding render). |
-| Usability | Payment demo completes in ≤ 3 user actions. |
-| Accessibility | WCAG 2.1 AA; timeline keyboard-navigable; colour-independent indicators. |
-| Bundle | ≤ 500 KB gzip initial load. |
-| Test coverage | ≥ 90% branch on engine + invariants. |
+| Performance            | 100 in-flight requests × 3 retries simulated in < 2 s (excluding render).      |
+| Usability              | Payment demo completes in ≤ 3 user actions.                                    |
+| Accessibility          | WCAG 2.1 AA; timeline keyboard-navigable; colour-independent indicators.       |
+| Bundle                 | ≤ 500 KB gzip initial load.                                                    |
+| Test coverage          | ≥ 90% branch on engine + invariants.                                           |
 
 ## Non-Goals (v1)
 

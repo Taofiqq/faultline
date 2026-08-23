@@ -2,25 +2,25 @@
 
 ## Milestone 1: Project Scaffold (P0)
 
-- [ ] **1.1** Initialize Vite + React + TypeScript project with strict tsconfig. [NFR-3, NFR-6]
+- [x] **1.1** Initialize Vite + React + TypeScript project with strict tsconfig. [NFR-3, NFR-6]
   - Deps: None
   - Verify: `npm run dev` serves empty page; `tsc --noEmit` passes.
-- [ ] **1.2** Configure ESLint with `no-restricted-globals` banning `Math.random`, `Date.now`, `performance.now`, `crypto.getRandomValues`, `setTimeout`, `setInterval` inside `src/engine/`. [NFR-2, simulation-invariants]
+- [x] **1.2** Configure ESLint with `no-restricted-globals` banning `Math.random`, `Date.now`, `performance.now`, `crypto.getRandomValues`, `setTimeout`, `setInterval` inside `src/engine/`. [NFR-2, simulation-invariants]
   - Deps: 1.1
   - Verify: Lint rule triggers on forbidden API usage in `src/engine/`; passes elsewhere.
-- [ ] **1.3** Configure Prettier and EditorConfig. [tech.md conventions]
+- [x] **1.3** Configure Prettier and EditorConfig. [tech.md conventions]
   - Deps: 1.1
   - Verify: `npm run format:check` passes on scaffold.
-- [ ] **1.4** Set up Vitest with v8 coverage provider; add `npm run test` and `npm run test:coverage`. [NFR-7, testing.md]
+- [x] **1.4** Set up Vitest with v8 coverage provider; add `npm run test` and `npm run test:coverage`. [NFR-7, testing.md]
   - Deps: 1.1
   - Verify: `npm run test` exits 0 with placeholder test; coverage report generated.
-- [ ] **1.5** Create approved folder structure (`src/engine/`, `src/scenario/`, `src/metrics/`, `src/invariants/`, `src/ui/`, `test/`). [structure.md]
+- [x] **1.5** Create approved folder structure (`src/engine/`, `src/scenario/`, `src/metrics/`, `src/invariants/`, `src/ui/`, `test/`). [structure.md]
   - Deps: 1.1
   - Verify: All directories exist with placeholder `index.ts` barrel files.
-- [ ] **1.6** Add fast-check and Playwright as dev dependencies (pinned versions). [tech.md]
+- [x] **1.6** Add fast-check and Playwright as dev dependencies (pinned versions). [tech.md]
   - Deps: 1.1
   - Verify: `import { fc } from 'fast-check'` resolves; Playwright config present.
-- [ ] **1.7** Add `npm run lint`, `npm run typecheck`, `npm run build` scripts; verify build produces output < 500 KB gzip (empty app). [NFR-4]
+- [x] **1.7** Add `npm run lint`, `npm run typecheck`, `npm run build` scripts; verify build produces output < 500 KB gzip (empty app). [NFR-4]
   - Deps: 1.1–1.6
   - Verify: All scripts pass; `dist/` output measured.
 
@@ -353,11 +353,11 @@
 
 ## Priority Summary
 
-| Priority | Milestones | Purpose |
-|----------|-----------|---------|
-| **P0** | 1–11, 13 | Core working product + payment demo + test coverage |
-| **P1** | 12, 14, 15 | Accessibility polish, dev hooks, documentation |
-| **P2** | (none defined) | Future: Web Workers, streaming render, additional demos |
+| Priority | Milestones     | Purpose                                                 |
+| -------- | -------------- | ------------------------------------------------------- |
+| **P0**   | 1–11, 13       | Core working product + payment demo + test coverage     |
+| **P1**   | 12, 14, 15     | Accessibility polish, dev hooks, documentation          |
+| **P2**   | (none defined) | Future: Web Workers, streaming render, additional demos |
 
 ## Dependency Graph (Critical Path)
 

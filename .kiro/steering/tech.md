@@ -2,16 +2,16 @@
 
 ## Approved Stack
 
-| Layer | Technology | Version Policy |
-|-------|-----------|----------------|
-| Language | TypeScript (strict mode) | Latest stable |
-| Build | Vite | Latest stable |
-| UI Framework | React 18+ | Latest stable |
-| Topology Editor | React Flow | Latest stable |
-| Schema Validation | Ajv (JSON Schema draft-07, tree-shaken) | Pinned |
-| PRNG | Custom xoshiro128** (Uint32Array, no external dep) | Internal |
-| Testing | Vitest + fast-check + Playwright | Latest stable |
-| Coverage | Vitest v8 provider | — |
+| Layer             | Technology                                         | Version Policy |
+| ----------------- | -------------------------------------------------- | -------------- |
+| Language          | TypeScript (strict mode)                           | Latest stable  |
+| Build             | Vite                                               | Latest stable  |
+| UI Framework      | React 18+                                          | Latest stable  |
+| Topology Editor   | React Flow                                         | Latest stable  |
+| Schema Validation | Ajv (JSON Schema draft-07, tree-shaken)            | Pinned         |
+| PRNG              | Custom xoshiro128** (Uint32Array, no external dep) | Internal       |
+| Testing           | Vitest + fast-check + Playwright                   | Latest stable  |
+| Coverage          | Vitest v8 provider                                 | —              |
 
 ## Architectural Boundaries
 
@@ -44,13 +44,13 @@ UI Layer  →  Scenario Manager  →  Simulation Engine
 
 ## Bundle Budget
 
-| Component | Budget (gzip) |
-|-----------|---------------|
-| React + ReactDOM | ~45 KB |
-| React Flow | ~40 KB |
-| Ajv (tree-shaken) | ~25 KB |
-| Engine + Invariants + Metrics | ~10 KB |
-| UI components | ~40 KB |
-| **Total** | **~160 KB** (headroom to 500 KB) |
+| Component                     | Budget (gzip)                    |
+| ----------------------------- | -------------------------------- |
+| React + ReactDOM              | ~45 KB                           |
+| React Flow                    | ~40 KB                           |
+| Ajv (tree-shaken)             | ~25 KB                           |
+| Engine + Invariants + Metrics | ~10 KB                           |
+| UI components                 | ~40 KB                           |
+| **Total**                     | **~160 KB** (headroom to 500 KB) |
 
 CI fails the build if total gzip exceeds 500 KB.

@@ -67,14 +67,14 @@ test/
 
 ## Module Ownership
 
-| Directory | Owner | Import Boundary |
-|-----------|-------|------------------|
-| `src/engine/` | Simulation team | Self-contained; no external imports |
-| `src/scenario/` | Data team | May import `engine/types.ts` only |
-| `src/metrics/` | Data team | May import `engine/types.ts` only |
-| `src/invariants/` | Data team | May import `engine/types.ts` only |
-| `src/ui/` | UI team | May import any `src/` module |
-| `test/` | All | Mirrors `src/` structure |
+| Directory         | Owner           | Import Boundary                     |
+| ----------------- | --------------- | ----------------------------------- |
+| `src/engine/`     | Simulation team | Self-contained; no external imports |
+| `src/scenario/`   | Data team       | May import `engine/types.ts` only   |
+| `src/metrics/`    | Data team       | May import `engine/types.ts` only   |
+| `src/invariants/` | Data team       | May import `engine/types.ts` only   |
+| `src/ui/`         | UI team         | May import any `src/` module        |
+| `test/`           | All             | Mirrors `src/` structure            |
 
 ## Conventions
 
