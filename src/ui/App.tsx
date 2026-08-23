@@ -68,6 +68,7 @@ export function App() {
             onUpdatePathFailures={app.updatePathFailures}
             onUpdatePathResilience={app.updatePathResilience}
             onSetMaxSimTime={app.setMaxSimTime}
+            onUpdateInvariants={app.updateInvariants}
           />
         </aside>
       </main>

@@ -4,8 +4,10 @@ import type {
   ValidationError,
   FailureInjection,
   ResilienceConfig,
+  InvariantDraft,
 } from '../scenario/types';
 import { PathEditor } from './PathEditor';
+import { InvariantBuilder } from './InvariantBuilder';
 
 interface ScenarioPanelProps {
   draft: ScenarioDraft;
@@ -18,6 +20,7 @@ interface ScenarioPanelProps {
   onUpdatePathFailures: (id: string, failures: FailureInjection[]) => void;
   onUpdatePathResilience: (id: string, resilience: Partial<ResilienceConfig>) => void;
   onSetMaxSimTime: (ms: number | null) => void;
+  onUpdateInvariants: (invariants: InvariantDraft[]) => void;
 }
 
 export function ScenarioPanel({
@@ -31,6 +34,7 @@ export function ScenarioPanel({
   onUpdatePathFailures,
   onUpdatePathResilience,
   onSetMaxSimTime,
+  onUpdateInvariants,
 }: ScenarioPanelProps) {
   const selectedService = draft.services.find((s) => s.id === selectedServiceId);
   const selectedPath = draft.paths.find((p) => p.id === selectedPathId);
@@ -89,6 +93,14 @@ export function ScenarioPanel({
           </p>
         </div>
       )}
+
+      <div className="scenario-panel__section">
+        <InvariantBuilder
+          invariants={draft.invariants}
+          paths={draft.paths}
+          onChange={onUpdateInvariants}
+        />
+      </div>
 
       {validationErrors.length > 0 && (
         <div className="scenario-panel__errors" role="alert">

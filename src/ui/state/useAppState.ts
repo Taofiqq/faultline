@@ -224,6 +224,13 @@ export function useAppState() {
     [updateDraft],
   );
 
+  const updateInvariants = useCallback(
+    (invariants: InvariantDraft[]) => {
+      updateDraft((d) => ({ ...d, invariants }));
+    },
+    [updateDraft],
+  );
+
   const selectService = useCallback((id: string | null) => {
     setState((prev) => ({ ...prev, selectedServiceId: id, selectedPathId: null }));
   }, []);
@@ -289,6 +296,7 @@ export function useAppState() {
     updatePathResilience,
     setSeed,
     setMaxSimTime,
+    updateInvariants,
     selectService,
     selectPath,
     runSimulation,
