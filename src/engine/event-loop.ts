@@ -106,13 +106,41 @@ export function simulate(options: SimulateOptions = {}): SimulationResult {
   const maxTime = options.maxSimulationTimeMs ?? DEFAULT_MAX_TIME;
   const queue = new EventQueue();
   const log: EventLog = [];
-  let sequence = 0;
   let clock = 0;
   let eventCount = 0;
   let stopped = false;
   let stopReason: 'time-limit' | 'event-limit' | undefined;
 
-  const nextSequence = (): number => ++sequence;
+  // Initialize sequence allocator from max initial sequence to avoid collisions.
+  // First generated event will be maxInitialSequence + 1.
+  let sequence = 0;
+  if (options.initialEvents && options.initialEvents.length > 0) {
+    const seenSequences = new Set<number>();
+    for (const event of options.initialEvents) {
+      if (!Number.isSafeInteger(event.sequence) || event.sequence < 0) {
+        throw new RangeError(
+          `Initial event sequence must be a non-negative safe integer, got: ${event.sequence}`,
+        );
+      }
+      if (seenSequences.has(event.sequence)) {
+        throw new Error(
+          `Duplicate initial event sequence: ${event.sequence}. All initial sequences must be globally unique.`,
+        );
+      }
+      seenSequences.add(event.sequence);
+      if (event.sequence > sequence) {
+        sequence = event.sequence;
+      }
+    }
+  }
+
+  const nextSequence = (): number => {
+    sequence++;
+    if (sequence > Number.MAX_SAFE_INTEGER) {
+      throw new RangeError('Sequence counter exceeded Number.MAX_SAFE_INTEGER');
+    }
+    return sequence;
+  };
 
   // Seed initial events
   if (options.initialEvents) {
