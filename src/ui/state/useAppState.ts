@@ -280,6 +280,15 @@ export function useAppState() {
         simulationResult: result,
         invariantResults: invResults,
         metrics: metricsResult,
+        baselineSnapshot:
+          prev.isDemoMode && !prev.isIdempotencyEnabled
+            ? {
+                simulationResult: result,
+                invariantResults: invResults,
+                metrics: metricsResult,
+                idempotencyEnabled: false,
+              }
+            : prev.baselineSnapshot,
         runtimeError: null,
       }));
     } catch (err) {

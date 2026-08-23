@@ -19,11 +19,7 @@ test.describe('Cross-browser determinism', () => {
     // Check events tab - count should be deterministic
     await page.getByRole('tab', { name: 'Events' }).click();
     const eventCount = page.locator('.event-table__count');
-    await expect(eventCount).toBeVisible();
-    const countText = await eventCount.textContent();
-    // The demo should produce a consistent event count across browsers
-    // With seed=0, lostResponse prob=0.5, we get a known event count
-    expect(countText).toContain('events');
+    await expect(eventCount).toHaveText('12/12 events');
 
     // Verify invariant result is deterministic (should FAIL for double charge)
     await page.getByRole('tab', { name: 'Invariants' }).click();
@@ -32,12 +28,18 @@ test.describe('Cross-browser determinism', () => {
     await expect(page.locator('text=/occurred 2 time/i')).toBeVisible();
 
     // Now enable idempotency and re-run
+    await expect(page.getByRole('button', { name: /enable idempotency/i })).toBeVisible();
     await page.getByRole('button', { name: /enable idempotency/i }).click();
-    await expect(page.getByRole('tablist', { name: 'Results views' })).toBeVisible();
+    await expect(
+      page.getByText(/same seed \(0\).*only change: idempotency enabled/i),
+    ).toBeVisible();
 
     await page.getByRole('tab', { name: 'Invariants' }).click();
     await expect(page.locator('.invariant-result--pass')).toBeVisible();
     // Should show 1 occurrence
     await expect(page.locator('text=/occurred 1 time/i')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Events' }).click();
+    await expect(page.locator('.event-table__count')).toHaveText('11/11 events');
   });
 });

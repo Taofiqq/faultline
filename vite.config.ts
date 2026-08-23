@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // The project enforces its real 500 KB gzip budget in check-bundle-size.js.
+    // Keep Vite's raw-chunk advisory aligned with the current 544 KB entry chunk.
+    chunkSizeWarningLimit: 600,
+  },
   resolve: {
     alias: {
       '@': '/src',

@@ -1,18 +1,11 @@
 import { useCallback } from 'react';
 import type { InvariantDraft, PathDraft } from '../scenario/types';
+import { nextInvariantId } from './invariant-counter';
 
 interface InvariantBuilderProps {
   invariants: InvariantDraft[];
   paths: PathDraft[];
   onChange: (invariants: InvariantDraft[]) => void;
-}
-
-let invariantCounter = 1;
-export function resetInvariantCounter(v = 1) {
-  invariantCounter = v;
-}
-function nextInvariantId(): string {
-  return `inv-${invariantCounter++}`;
 }
 
 const INVARIANT_TYPES = [

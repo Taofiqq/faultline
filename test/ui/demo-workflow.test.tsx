@@ -2,8 +2,9 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { render, renderHook, screen, fireEvent, act } from '@testing-library/react';
 import { useAppState, resetIdCounter } from '../../src/ui/state/useAppState';
+import { App } from '../../src/ui/App';
 
 beforeEach(() => {
   resetIdCounter();
@@ -32,6 +33,21 @@ describe('Demo workflow', () => {
     const charges = result.current.state.metrics!.sideEffectCounts['charge'];
     expect(charges).toBe(2);
     expect(result.current.state.invariantResults![0]!.passed).toBe(false);
+    expect(result.current.state.baselineSnapshot).toEqual({
+      simulationResult: result.current.state.simulationResult,
+      invariantResults: result.current.state.invariantResults,
+      metrics: result.current.state.metrics,
+      idempotencyEnabled: false,
+    });
+  });
+
+  it('offers the idempotency replay after the baseline run', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /load payment demo/i }));
+    fireEvent.click(screen.getByLabelText('Run simulation'));
+
+    expect(screen.getByRole('button', { name: /enable idempotency and replay/i })).toBeDefined();
   });
 
   it('enableIdempotencyAndReplay changes only idempotencyEnabled', () => {

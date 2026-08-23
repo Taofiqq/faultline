@@ -4,7 +4,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { renderHook, act } from '@testing-library/react';
-import { InvariantBuilder, resetInvariantCounter } from '../../src/ui/InvariantBuilder';
+import { InvariantBuilder } from '../../src/ui/InvariantBuilder';
+import { resetInvariantCounter } from '../../src/ui/invariant-counter';
 import { App } from '../../src/ui/App';
 import { useAppState, resetIdCounter } from '../../src/ui/state/useAppState';
 import { createPaymentDoubleChargeScenario } from '../../src/scenario/demo-loader';

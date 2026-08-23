@@ -1,6 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { join } from 'path';
-import { writeFileSync, mkdirSync } from 'fs';
 
 test.describe('Import/Export', () => {
   test('export scenario produces a downloadable file', async ({ page }) => {
@@ -18,15 +16,12 @@ test.describe('Import/Export', () => {
   test('import malformed JSON shows error', async ({ page }) => {
     await page.goto('/');
 
-    // Create a temp file with invalid JSON
-    const tmpDir = join(__dirname, '..', '..', 'tmp-test');
-    mkdirSync(tmpDir, { recursive: true });
-    const badFile = join(tmpDir, 'bad.json');
-    writeFileSync(badFile, '{not valid json!!!}');
-
-    // Upload the file
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(badFile);
+    await fileInput.setInputFiles({
+      name: 'bad.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from('{not valid json!!!}'),
+    });
 
     // Should show import errors
     await expect(page.locator('[role="alert"]')).toBeVisible();
@@ -35,22 +30,20 @@ test.describe('Import/Export', () => {
   test('import semantically invalid file shows errors', async ({ page }) => {
     await page.goto('/');
 
-    const tmpDir = join(__dirname, '..', '..', 'tmp-test');
-    mkdirSync(tmpDir, { recursive: true });
-    const badFile = join(tmpDir, 'invalid-schema.json');
-    writeFileSync(
-      badFile,
-      JSON.stringify({
-        schemaVersion: 1,
-        seed: -1, // invalid negative seed
-        services: [],
-        paths: [],
-        invariants: [],
-      }),
-    );
-
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(badFile);
+    await fileInput.setInputFiles({
+      name: 'invalid-schema.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(
+        JSON.stringify({
+          schemaVersion: 1,
+          seed: -1, // invalid negative seed
+          services: [],
+          paths: [],
+          invariants: [],
+        }),
+      ),
+    });
 
     // Should show validation errors
     await expect(page.locator('[role="alert"]')).toBeVisible();
