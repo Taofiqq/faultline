@@ -4,12 +4,15 @@ export default defineConfig({
   testDir: './test/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 2 : undefined,
+  reporter: process.env.CI ? 'html' : 'list',
+  timeout: 30000,
   use: {
     baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'on-first-retry',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
