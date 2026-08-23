@@ -278,40 +278,40 @@
 
 ## Milestone 13: Property Tests, Golden Files, E2E & CI (P0)
 
-- [ ] **13.1** Write `test/properties/determinism.prop.ts`: arbitrary valid scenario × same seed × 2 runs → identical. [testing.md §Property Tests]
+- [x] **13.1** Write `test/properties/determinism.prop.ts`: arbitrary valid scenario × same seed × 2 runs → identical. [testing.md §Property Tests]
   - Deps: 6.5
   - Verify: fast-check passes 1000 iterations.
-- [ ] **13.2** Write `test/properties/backoff.prop.ts`: delay ≥ baseDelay, ≤ 2³¹−1. [testing.md]
+- [x] **13.2** Write `test/properties/backoff.prop.ts`: delay ≥ baseDelay, ≤ 2³¹−1. [testing.md]
   - Deps: 5.1
   - Verify: fast-check passes.
-- [ ] **13.3** Write `test/properties/circuit.prop.ts`: never > 1 half-open probe per generation. [testing.md]
+- [x] **13.3** Write `test/properties/circuit.prop.ts`: never > 1 half-open probe per generation. [testing.md]
   - Deps: 6.4
   - Verify: fast-check passes.
-- [ ] **13.4** Write `test/properties/termination.prop.ts`: simulation always terminates (≤ 100K events). [testing.md]
+- [x] **13.4** Write `test/properties/termination.prop.ts`: simulation always terminates (≤ 100K events). [testing.md]
   - Deps: 3.5
   - Verify: fast-check passes.
-- [ ] **13.5** Create `test/golden/payment-demo.json` — committed normalized event sequence for demo scenario. [testing.md §Golden-File]
+- [x] **13.5** Create `test/golden/payment-demo.json` — committed normalized event sequence for demo scenario. [testing.md §Golden-File]
   - Deps: 5.6
   - Verify: Test asserts deep-equality with `simulate()` output.
-- [ ] **13.6** Create `test/golden/complex-scenario.json` — multi-path scenario with retries + circuit breakers. [testing.md §Golden-File]
+- [x] **13.6** Create `test/golden/complex-scenario.json` — multi-path scenario with retries + circuit breakers. [testing.md §Golden-File]
   - Deps: 6.5
   - Verify: Test passes.
-- [ ] **13.7** Write `test/e2e/payment-demo.spec.ts` (Playwright): load → run → invariant fails → toggle idempotency → re-run → passes → timeline shows dedup. [testing.md §E2E]
+- [x] **13.7** Write `test/e2e/payment-demo.spec.ts` (Playwright): load → run → invariant fails → toggle idempotency → re-run → passes → timeline shows dedup. [testing.md §E2E]
   - Deps: 11.2
   - Verify: Playwright test passes in Chromium.
-- [ ] **13.8** Write `test/e2e/import-export.spec.ts` (Playwright): upload invalid → errors; configure → export → import → same results. [testing.md §E2E]
+- [x] **13.8** Write `test/e2e/import-export.spec.ts` (Playwright): upload invalid → errors; configure → export → import → same results. [testing.md §E2E]
   - Deps: 11.3
   - Verify: Playwright test passes.
-- [ ] **13.9** Write `test/e2e/accessibility.spec.ts`: axe-core integration on all views. [testing.md §Accessibility]
+- [x] **13.9** Write `test/e2e/accessibility.spec.ts`: axe-core integration on all views. [testing.md §Accessibility]
   - Deps: 12.1
   - Verify: Zero WCAG 2.1 AA violations.
-- [ ] **13.10** Write `test/e2e/keyboard-nav.spec.ts`: full workflow without mouse. [testing.md §E2E]
+- [x] **13.10** Write `test/e2e/keyboard-nav.spec.ts`: full workflow without mouse. [testing.md §E2E]
   - Deps: 12.4
   - Verify: Playwright test passes.
-- [ ] **13.11** Run golden-file tests in Playwright headless Chromium, Firefox, WebKit — assert identical output across all three. [testing.md §Cross-Browser]
+- [x] **13.11** Run golden-file tests in Playwright headless Chromium, Firefox, WebKit — assert identical output across all three. [testing.md §Cross-Browser]
   - Deps: 13.5, 13.6
   - Verify: All three browsers produce identical event sequences.
-- [ ] **13.12** Configure CI pipeline: lint → typecheck → unit/property → coverage (≥ 90% engine/invariants) → golden → build → bundle check (≤ 500 KB) → E2E → accessibility. [testing.md §CI Pipeline]
+- [x] **13.12** Configure CI pipeline: lint → typecheck → unit/property → coverage (≥ 90% engine/invariants) → golden → build → bundle check (≤ 500 KB) → E2E → accessibility. [testing.md §CI Pipeline]
   - Deps: 13.1–13.11
   - Verify: CI pipeline passes end-to-end.
 
@@ -319,10 +319,10 @@
 
 ## Milestone 14: Kiro Development Hook (P1)
 
-- [ ] **14.1** Create `.kiro/hooks/engine-tests.md` — Kiro hook that runs `vitest run src/engine` and related property tests when any file in `src/engine/` changes. [Kiro hooks]
+- [x] **14.1** Create `.kiro/agents/engine-verify.json` — Kiro agent with postToolUse hook (write matcher) that runs engine unit tests and property tests when any file in `src/engine/` changes. [Kiro hooks, agent-configuration]
   - Deps: 1.4, 3.1
-  - Verify: Editing an engine file triggers the hook; test results reported.
-- [ ] **14.2** Add hook for golden-file comparison on engine changes.
+  - Verify: Writing an engine file triggers the hook; test results reported.
+- [x] **14.2** Add hook for golden-file comparison on engine changes (in same agent config).
   - Deps: 13.5, 14.1
   - Verify: Engine change triggers golden-file check.
 
