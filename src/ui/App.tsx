@@ -1,13 +1,27 @@
+import { useState, useCallback } from 'react';
 import './tokens.css';
 import './App.css';
+import './Results.css';
 import { useAppState } from './state/useAppState';
 import { TopologyGraph } from './TopologyGraph';
 import { ScenarioPanel } from './ScenarioPanel';
 import { RunStatus } from './RunStatus';
+import { ResultsWorkspace } from './ResultsWorkspace';
 
 export function App() {
   const app = useAppState();
   const { state } = app;
+  const [selectedEventSequence, setSelectedEventSequence] = useState<number | null>(null);
+
+  const handleSelectEvent = useCallback((seq: number | null) => {
+    setSelectedEventSequence(seq);
+  }, []);
+
+  // Clear event selection on new run
+  const handleRun = useCallback(() => {
+    setSelectedEventSequence(null);
+    app.runSimulation();
+  }, [app]);
 
   return (
     <div className="app">
@@ -31,7 +45,7 @@ export function App() {
           </label>
           <button
             className="btn btn--primary"
-            onClick={app.runSimulation}
+            onClick={handleRun}
             disabled={state.draft.services.length === 0}
             aria-label="Run simulation"
           >
@@ -72,6 +86,16 @@ export function App() {
           />
         </aside>
       </main>
+
+      <section className="app-results" aria-label="Simulation results">
+        <ResultsWorkspace
+          simulationResult={state.simulationResult}
+          invariantResults={state.invariantResults}
+          metrics={state.metrics}
+          onSelectEvent={handleSelectEvent}
+          selectedEventSequence={selectedEventSequence}
+        />
+      </section>
 
       <footer className="app-footer" aria-label="Results summary">
         <RunStatus

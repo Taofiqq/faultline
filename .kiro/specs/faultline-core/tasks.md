@@ -212,19 +212,19 @@
 
 ## Milestone 10: Timeline, Event Table & Results (P0)
 
-- [ ] **10.1** Implement `TimelineView.tsx`: HTML/SVG swim lanes per service, colour-coded spans by event type, virtualized scrolling for 1,000+ events. [US-3 AC-1–3, NFR-5]
+- [x] **10.1** Implement `TimelineView.tsx`: HTML/SVG swim lanes per service, colour-coded spans by event type, virtualized scrolling for 1,000+ events. [US-3 AC-1–3, NFR-5]
   - Deps: 9.7
   - Verify: Manual test — spans render on correct lanes; visually distinct.
-- [ ] **10.2** Implement hover metadata on timeline spans: start/end time, latency, failure type, attempt, deliveryIndex, idempotency key, late flag. [US-3 AC-4]
+- [x] **10.2** Implement hover metadata on timeline spans: start/end time, latency, failure type, attempt, deliveryIndex, idempotency key, late flag. [US-3 AC-4]
   - Deps: 10.1
   - Verify: Manual test — hover shows all fields.
-- [ ] **10.3** Implement `EventTable.tsx`: accessible HTML table of all events, sortable, keyboard-navigable. [NFR-5, design.md §UI Accessibility]
+- [x] **10.3** Implement `EventTable.tsx`: accessible HTML table of all events, sortable, keyboard-navigable. [NFR-5, design.md §UI Accessibility]
   - Deps: 9.7
   - Verify: Manual test — table renders; Tab/arrow keys navigate; screen reader announces rows.
-- [ ] **10.4** Implement `MetricsPanel.tsx`: total requests, failures by type, p50/p95/p99 latency, duplicates, deduplications. [US-3 AC-5]
+- [x] **10.4** Implement `MetricsPanel.tsx`: total requests, failures by type, p50/p95/p99 latency, duplicates, deduplications. [US-3 AC-5]
   - Deps: 7.2, 9.7
   - Verify: Manual test — metrics match expected values for demo scenario.
-- [ ] **10.5** Display invariant results (pass/fail, evidence) in results view. [US-6 AC-4]
+- [x] **10.5** Display invariant results (pass/fail, evidence) in results view. [US-6 AC-4]
   - Deps: 7.1, 9.7
   - Verify: Manual test — invariant failure shows evidence; pass shows green.
 
