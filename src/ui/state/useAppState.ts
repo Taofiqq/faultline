@@ -13,9 +13,12 @@ import { validateStructural, validateSemantic } from '../../scenario/schema-vali
 import { simulateScenario } from '../../engine/simulate-scenario';
 import { evaluateInvariants } from '../../invariants/evaluator';
 import { computeMetrics } from '../../metrics/compute';
+import { createPaymentDoubleChargeScenario } from '../../scenario/demo-loader';
 import type { SimulationResult } from '../../engine/types';
 import type { InvariantResult } from '../../invariants/evaluator';
 import type { SimulationMetrics } from '../../metrics/compute';
+
+import type { DemoSnapshot } from '../DemoLauncher';
 
 export type AppStatus = 'empty' | 'editing' | 'invalid' | 'ready' | 'completed';
 
@@ -28,6 +31,10 @@ export interface AppState {
   metrics: SimulationMetrics | null;
   selectedServiceId: string | null;
   selectedPathId: string | null;
+  // Demo mode
+  isDemoMode: boolean;
+  baselineSnapshot: DemoSnapshot | null;
+  isIdempotencyEnabled: boolean;
 }
 
 let nextId = 1;
@@ -96,6 +103,9 @@ export function useAppState() {
     metrics: null,
     selectedServiceId: null,
     selectedPathId: null,
+    isDemoMode: false,
+    baselineSnapshot: null,
+    isIdempotencyEnabled: false,
   });
 
   const updateDraft = useCallback((updater: (draft: ScenarioDraft) => ScenarioDraft) => {
@@ -281,8 +291,74 @@ export function useAppState() {
       metrics: null,
       selectedServiceId: null,
       selectedPathId: null,
+      isDemoMode: false,
+      baselineSnapshot: null,
+      isIdempotencyEnabled: false,
     });
   }, []);
+
+  const loadDemo = useCallback(() => {
+    const scenario = createPaymentDoubleChargeScenario();
+    const draft: ScenarioDraft = {
+      services: scenario.services.map((s) => ({ ...s })),
+      paths: scenario.paths.map((p) => ({ ...p, resilience: { ...p.resilience } })),
+      invariants: scenario.invariants.map((inv) => ({ ...inv }) as unknown as InvariantDraft),
+      seed: scenario.seed,
+      maxSimulationTimeMs: scenario.maxSimulationTimeMs,
+    };
+    setState({
+      draft,
+      status: 'editing',
+      validationErrors: [],
+      simulationResult: null,
+      invariantResults: null,
+      metrics: null,
+      selectedServiceId: null,
+      selectedPathId: null,
+      isDemoMode: true,
+      baselineSnapshot: null,
+      isIdempotencyEnabled: false,
+    });
+  }, []);
+
+  const enableIdempotencyAndReplay = useCallback(() => {
+    setState((prev) => {
+      // Save baseline snapshot
+      const baseline: DemoSnapshot | null =
+        prev.simulationResult && prev.invariantResults && prev.metrics
+          ? {
+              simulationResult: prev.simulationResult,
+              invariantResults: prev.invariantResults,
+              metrics: prev.metrics,
+              idempotencyEnabled: false,
+            }
+          : prev.baselineSnapshot;
+
+      // Enable idempotency on all paths
+      const newDraft: ScenarioDraft = {
+        ...prev.draft,
+        paths: prev.draft.paths.map((p) => ({
+          ...p,
+          resilience: { ...p.resilience, idempotencyEnabled: true },
+        })),
+      };
+
+      return {
+        ...prev,
+        draft: newDraft,
+        baselineSnapshot: baseline,
+        isIdempotencyEnabled: true,
+        status: 'editing',
+        simulationResult: null,
+        invariantResults: null,
+        metrics: null,
+      };
+    });
+  }, []);
+
+  const resetDemo = useCallback(() => {
+    loadDemo();
+  }, [loadDemo]);
 
   return {
     state,
@@ -301,6 +377,9 @@ export function useAppState() {
     selectPath,
     runSimulation,
     loadScenario,
+    loadDemo,
+    enableIdempotencyAndReplay,
+    resetDemo,
     updateDraft,
   };
 }

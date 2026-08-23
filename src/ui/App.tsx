@@ -7,6 +7,10 @@ import { TopologyGraph } from './TopologyGraph';
 import { ScenarioPanel } from './ScenarioPanel';
 import { RunStatus } from './RunStatus';
 import { ResultsWorkspace } from './ResultsWorkspace';
+import { DemoLauncher } from './DemoLauncher';
+import { ImportExportControls } from './ImportExportControls';
+import type { DemoSnapshot } from './DemoLauncher';
+import { validateDraft } from './state/useAppState';
 
 export function App() {
   const app = useAppState();
@@ -23,6 +27,37 @@ export function App() {
     app.runSimulation();
   }, [app]);
 
+  // Build current demo snapshot if available
+  const currentDemoSnapshot: DemoSnapshot | null =
+    state.simulationResult && state.invariantResults && state.metrics
+      ? {
+          simulationResult: state.simulationResult,
+          invariantResults: state.invariantResults,
+          metrics: state.metrics,
+          idempotencyEnabled: state.isIdempotencyEnabled,
+        }
+      : null;
+
+  // Build scenario for export (validate without errors = exportable)
+  const exportableScenario =
+    state.draft.services.length > 0 && validateDraft(state.draft).length === 0
+      ? ({
+          schemaVersion: 1,
+          seed: state.draft.seed ?? 42,
+          maxSimulationTimeMs: state.draft.maxSimulationTimeMs ?? 60000,
+          services: state.draft.services,
+          paths: state.draft.paths.map((p) => ({
+            ...p,
+            deadlineMs: p.deadlineMs ?? 5000,
+            resilience: {
+              idempotencyEnabled: p.resilience.idempotencyEnabled ?? false,
+              ...p.resilience,
+            },
+          })),
+          invariants: state.draft.invariants,
+        } as unknown as import('../scenario/types').Scenario)
+      : null;
+
   return (
     <div className="app">
       <header className="app-header">
@@ -31,6 +66,24 @@ export function App() {
           <span className="app-header__subtitle">Distributed Systems Failure Simulator</span>
         </div>
         <div className="app-header__controls">
+          <DemoLauncher
+            onLoadDemo={app.loadDemo}
+            onEnableIdempotency={() => {
+              app.enableIdempotencyAndReplay();
+            }}
+            onResetDemo={app.resetDemo}
+            baselineResult={state.baselineSnapshot}
+            currentResult={currentDemoSnapshot}
+            isIdempotencyEnabled={state.isIdempotencyEnabled}
+            isDemoMode={state.isDemoMode}
+          />
+          <ImportExportControls
+            scenario={exportableScenario}
+            onImport={(s) => app.loadScenario(s)}
+            onImportError={() => {
+              /* Validation errors handled in panel via next validation pass */
+            }}
+          />
           <label className="app-header__seed">
             <span className="label-text">Seed</span>
             <input

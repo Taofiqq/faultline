@@ -232,19 +232,19 @@
 
 ## Milestone 11: Demo Workflow & Resilience UI (P0)
 
-- [ ] **11.1** Implement `DemoLauncher.tsx`: one-click load of payment demo from home screen. [US-8 AC-1]
+- [x] **11.1** Implement `DemoLauncher.tsx`: one-click load of payment demo from home screen. [US-8 AC-1]
   - Deps: 4.5, 9.1
   - Verify: Manual test — button loads demo scenario into editor.
-- [ ] **11.2** Wire complete payment demo workflow: load → run (invariant fails) → toggle idempotency → re-run (invariant passes). [US-8 AC-5, AC-6]
+- [x] **11.2** Wire complete payment demo workflow: load → run (invariant fails) → toggle idempotency → re-run (invariant passes). [US-8 AC-5, AC-6]
   - Deps: 11.1, 9.7, 7.1
   - Verify: Manual test — full flow works end-to-end.
-- [ ] **11.3** Implement `ImportExportControls.tsx`: file download (export), file picker (import) with validation error display. [US-7 AC-1, AC-2]
+- [x] **11.3** Implement `ImportExportControls.tsx`: file download (export), file picker (import) with validation error display. [US-7 AC-1, AC-2]
   - Deps: 2.5, 2.6, 9.1
   - Verify: Manual test — export downloads JSON; import of invalid file shows errors.
-- [ ] **11.4** Seed input: user can set/auto-generate u32 seed; re-run with same seed produces same results. [US-5 AC-1]
+- [x] **11.4** Seed input: user can set/auto-generate u32 seed; re-run with same seed produces same results. [US-5 AC-1]
   - Deps: 9.4
   - Verify: Manual test — two runs same seed → identical timeline.
-- [ ] **11.5** Error states: display clear feedback for simulation-stopped (time/event limit), validation failures, import errors. [NFR-9, US-7]
+- [x] **11.5** Error states: display clear feedback for simulation-stopped (time/event limit), validation failures, import errors. [NFR-9, US-7]
   - Deps: 9.7, 11.3
   - Verify: Manual test — each error state renders correctly.
 
