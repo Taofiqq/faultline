@@ -186,25 +186,25 @@
 
 ## Milestone 9: App Shell, Topology & Controls (P0)
 
-- [ ] **9.1** Create React app shell with routing: Home, Editor, Results views. [NFR-3]
+- [x] **9.1** Create React app shell with routing: Home, Editor, Results views. [NFR-3]
   - Deps: 1.1
   - Verify: App renders in browser; navigation works.
-- [ ] **9.2** Implement `TopologyGraph.tsx` with React Flow: add/remove/rename services, add/remove paths, no self-loops enforced. [US-1 AC-1–3]
+- [x] **9.2** Implement `TopologyGraph.tsx` with React Flow: add/remove/rename services, add/remove paths, no self-loops enforced. [US-1 AC-1–3]
   - Deps: 9.1, 2.1
   - Verify: Manual test — create services and paths; self-loop attempt rejected.
-- [ ] **9.3** Show warning icon on disconnected services. [US-1 AC-4]
+- [x] **9.3** Show warning icon on disconnected services. [US-1 AC-4]
   - Deps: 9.2
   - Verify: Manual test — disconnected node shows warning.
-- [ ] **9.4** Implement `ScenarioEditor.tsx`: failure injection forms (latency, lost response, service error, duplicate), resilience forms (retries, backoff, idempotency, circuit breaker), caller deadline, operation name, side-effect name. [US-2, US-4]
+- [x] **9.4** Implement `ScenarioEditor.tsx`: failure injection forms (latency, lost response, service error, duplicate), resilience forms (retries, backoff, idempotency, circuit breaker), caller deadline, operation name, side-effect name. [US-2, US-4]
   - Deps: 9.2, 2.1
   - Verify: Manual test — configure all fields; ScenarioDraft updates correctly.
-- [ ] **9.5** Implement `InvariantBuilder.tsx`: structured rule builder for 5 built-in types. [US-6 AC-1]
+- [x] **9.5** Implement `InvariantBuilder.tsx`: structured rule builder for 5 built-in types. [US-6 AC-1]
   - Deps: 9.1, 2.1
   - Verify: Manual test — add/remove invariants; output matches expected InvariantConfig.
-- [ ] **9.6** Implement ScenarioDraft → Scenario validation on "Run" button; display inline errors on invalid draft. [design.md §ScenarioDraft → Scenario Boundary]
+- [x] **9.6** Implement ScenarioDraft → Scenario validation on "Run" button; display inline errors on invalid draft. [design.md §ScenarioDraft → Scenario Boundary]
   - Deps: 9.4, 2.3, 2.4
   - Verify: Manual test — invalid config shows errors; valid config triggers simulation.
-- [ ] **9.7** Wire "Run" button: validate → simulate → pass EventLog to results view. [design.md §Data Flow]
+- [x] **9.7** Wire "Run" button: validate → simulate → pass EventLog to results view. [design.md §Data Flow]
   - Deps: 9.6, 3.5
   - Verify: Manual test — simulation runs; results render (placeholder OK).
 

@@ -11,7 +11,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['test/**/*.{test,prop}.ts'],
+    include: ['test/**/*.{test,prop}.ts', 'test/**/*.{test,prop}.tsx'],
     coverage: {
       provider: 'v8',
       include: ['src/engine/**', 'src/invariants/**'],
