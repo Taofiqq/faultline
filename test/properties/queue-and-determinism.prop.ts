@@ -3,8 +3,9 @@ import fc from 'fast-check';
 import { EventQueue, simulate } from '../../src/engine/event-loop';
 import { createPRNG } from '../../src/engine/prng';
 import type { SimEvent } from '../../src/engine/types';
+import type { QueueEvent } from '../../src/engine/failure-pipeline';
 
-function makeEvent(timestamp: number, sequence: number): SimEvent {
+function makeEvent(timestamp: number, sequence: number): QueueEvent {
   return {
     type: 'RequestSent',
     timestamp,
@@ -138,7 +139,7 @@ describe('Property: simulate determinism', () => {
         (seed, timestamps) => {
           // Use seed to create deterministic initial events
           const prng = createPRNG(seed);
-          const events: SimEvent[] = timestamps.map((ts, i) => makeEvent(ts, i + 1));
+          const events: QueueEvent[] = timestamps.map((ts, i) => makeEvent(ts, i + 1));
 
           const result1 = simulate({ initialEvents: [...events] });
           const result2 = simulate({ initialEvents: [...events] });
@@ -171,7 +172,7 @@ describe('Property: simulate determinism', () => {
       fc.property(
         fc.array(fc.nat({ max: 59000 }), { minLength: 1, maxLength: 100 }),
         (timestamps) => {
-          const events: SimEvent[] = timestamps.map((ts, i) => makeEvent(ts, i + 1));
+          const events: QueueEvent[] = timestamps.map((ts, i) => makeEvent(ts, i + 1));
           const result = simulate({ initialEvents: events });
           expect(result.totalEvents).toBeLessThanOrEqual(100000);
           expect(result.events.length).toBeLessThanOrEqual(100001); // +1 for possible SimulationStopped

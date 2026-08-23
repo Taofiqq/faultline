@@ -77,22 +77,22 @@
 
 ## Milestone 4: Minimal Pipeline — Vertical Slice (P0)
 
-- [ ] **4.1** Implement T1 (RequestSent → RequestArrived): circuit check (stub: always closed), request latency (fixed only for now). [design.md §Multi-Event Pipeline T1]
+- [x] **4.1** Implement T1 (RequestSent → RequestArrived): circuit check (stub: always closed), request latency (fixed only for now). [design.md §Multi-Event Pipeline T1]
   - Deps: 3.5, 3.1
   - Verify: Unit test — RequestSent produces RequestArrived at correct timestamp.
-- [ ] **4.2** Implement T2 (RequestArrived → process): side-effect emission for successful non-deduplicated processing, ResponseSent. [design.md §Multi-Event Pipeline T2]
+- [x] **4.2** Implement T2 (RequestArrived → process): side-effect emission for successful non-deduplicated processing, ResponseSent. [design.md §Multi-Event Pipeline T2]
   - Deps: 4.1
   - Verify: Unit test — RequestArrived produces SideEffect + ResponseSent.
-- [ ] **4.3** Implement T3 (ResponseSent → ResponseReceived): response latency, response loss. [design.md §Multi-Event Pipeline T3]
+- [x] **4.3** Implement T3 (ResponseSent → ResponseReceived): response latency, response loss. [design.md §Multi-Event Pipeline T3]
   - Deps: 4.2
   - Verify: Unit test — ResponseSent produces ResponseReceived or ResponseLost.
-- [ ] **4.4** Implement T4 (ResponseReceived / Timeout): caller deadline timeout, TimeoutError emission, late-response handling (`late: true`). [design.md §Multi-Event Pipeline T4, US-2 lost response]
+- [x] **4.4** Implement T4 (ResponseReceived / Timeout): caller deadline timeout, TimeoutError emission, late-response handling (`late: true`). [design.md §Multi-Event Pipeline T4, US-2 lost response]
   - Deps: 4.3
   - Verify: Unit test — timeout fires at deadline; late response logged with `late: true`, no state change.
-- [ ] **4.5** Implement `demo-loader.ts` with payment double-charge scenario (no resilience variant). [US-8]
+- [x] **4.5** Implement `demo-loader.ts` with payment double-charge scenario (no resilience variant). [US-8]
   - Deps: 2.1, 4.1–4.4
-  - Verify: `simulate(demoScenario)` produces event log with 2 SideEffect("charge") events.
-- [ ] **4.6** Write `test/engine/failure-pipeline.test.ts` for T1–T4 in isolation. [testing.md]
+  - Verify: `simulate(demoScenario)` produces event log with 1 SideEffect("charge") + timeout.
+- [x] **4.6** Write `test/engine/failure-pipeline.test.ts` for T1–T4 in isolation. [testing.md]
   - Deps: 4.1–4.4
   - Verify: All tests pass.
 

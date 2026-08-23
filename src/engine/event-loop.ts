@@ -1,10 +1,11 @@
 import type { SimEvent, EventLog, SimulationResult } from './types';
+import type { QueueEvent, ProcessResult } from './failure-pipeline';
 
 // ─── Priority Queue (Min-Heap) ───────────────────────────────────────────────
 // Ordered by (timestamp ASC, sequence ASC) — guarantees FIFO at same timestamp.
 
 export class EventQueue {
-  private heap: SimEvent[] = [];
+  private heap: QueueEvent[] = [];
 
   get size(): number {
     return this.heap.length;
@@ -14,16 +15,16 @@ export class EventQueue {
     return this.heap.length === 0;
   }
 
-  peek(): SimEvent | undefined {
+  peek(): QueueEvent | undefined {
     return this.heap[0];
   }
 
-  push(event: SimEvent): void {
+  push(event: QueueEvent): void {
     this.heap.push(event);
     this.bubbleUp(this.heap.length - 1);
   }
 
-  pop(): SimEvent | undefined {
+  pop(): QueueEvent | undefined {
     const heap = this.heap;
     if (heap.length === 0) return undefined;
     const top = heap[0]!;
@@ -71,11 +72,7 @@ export class EventQueue {
     }
   }
 
-  /**
-   * Compare two events by (timestamp, sequence).
-   * Returns negative if a should come before b.
-   */
-  private compare(a: SimEvent, b: SimEvent): number {
+  private compare(a: QueueEvent, b: QueueEvent): number {
     if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
     return a.sequence - b.sequence;
   }
@@ -89,12 +86,12 @@ const MAX_EVENTS = 100_000;
 export interface SimulateOptions {
   maxSimulationTimeMs?: number;
   /** Initial events to seed the queue. */
-  initialEvents?: SimEvent[];
+  initialEvents?: QueueEvent[];
   /**
    * Event processor: given an event and a sequence allocator, returns
-   * new events to enqueue. Not needed for M3 — will be connected in M4.
+   * a ProcessResult with events to enqueue, logging control, etc.
    */
-  processEvent?: (event: SimEvent, nextSequence: () => number) => SimEvent[];
+  processEvent?: (event: QueueEvent, nextSequence: () => number) => ProcessResult;
 }
 
 /**
@@ -103,6 +100,7 @@ export interface SimulateOptions {
  * - Events are dequeued in (timestamp, sequence) order.
  * - Terminates when: queue empty, time limit, or event limit.
  * - Emits SimulationStopped if a limit is hit.
+ * - Internal events (type starts with '_') are never logged.
  */
 export function simulate(options: SimulateOptions = {}): SimulationResult {
   const maxTime = options.maxSimulationTimeMs ?? DEFAULT_MAX_TIME;
@@ -156,13 +154,28 @@ export function simulate(options: SimulateOptions = {}): SimulationResult {
     queue.pop();
     clock = event.timestamp;
     eventCount++;
-    log.push(event);
 
-    // Process event and enqueue results
+    // Process event
     if (options.processEvent) {
-      const produced = options.processEvent(event, nextSequence);
-      for (const e of produced) {
+      const result = options.processEvent(event, nextSequence);
+
+      // Log control
+      if (result.log) {
+        if (result.logAs) {
+          log.push(result.logAs);
+        } else if (!event.type.startsWith('_')) {
+          log.push(event as SimEvent);
+        }
+      }
+
+      // Enqueue produced events
+      for (const e of result.enqueue) {
         queue.push(e);
+      }
+    } else {
+      // No processor — log all non-internal events
+      if (!event.type.startsWith('_')) {
+        log.push(event as SimEvent);
       }
     }
   }

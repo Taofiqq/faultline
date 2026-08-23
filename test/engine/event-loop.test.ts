@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { EventQueue, simulate } from '../../src/engine/event-loop';
-import type { SimEvent } from '../../src/engine/types';
+import type { QueueEvent } from '../../src/engine/failure-pipeline';
 
-function makeEvent(timestamp: number, sequence: number): SimEvent {
+function makeEvent(timestamp: number, sequence: number): QueueEvent {
   return {
     type: 'RequestSent',
     timestamp,
@@ -12,7 +12,7 @@ function makeEvent(timestamp: number, sequence: number): SimEvent {
     idempotencyKey: 'key-1',
     attempt: 0,
     deliveryIndex: 0,
-  } as SimEvent;
+  };
 }
 
 describe('EventQueue', () => {
@@ -85,7 +85,7 @@ describe('simulate()', () => {
   });
 
   it('processes all events in order', () => {
-    const events: SimEvent[] = [makeEvent(50, 2), makeEvent(10, 1), makeEvent(30, 3)];
+    const events: QueueEvent[] = [makeEvent(50, 2), makeEvent(10, 1), makeEvent(30, 3)];
     const result = simulate({ initialEvents: events });
 
     expect(result.events.map((e) => e.timestamp)).toEqual([10, 30, 50]);
@@ -94,7 +94,7 @@ describe('simulate()', () => {
   });
 
   it('stops at time limit and emits SimulationStopped', () => {
-    const events: SimEvent[] = [
+    const events: QueueEvent[] = [
       makeEvent(100, 1),
       makeEvent(200, 2),
       makeEvent(70000, 3), // exceeds default 60000
@@ -118,19 +118,22 @@ describe('simulate()', () => {
       maxSimulationTimeMs: 999999999, // high time limit so event limit fires first
       processEvent: (_event, nextSeq) => {
         counter++;
-        if (counter > 100001) return []; // safety
-        return [
-          {
-            type: 'RequestSent' as const,
-            timestamp: 0, // keep at 0 to avoid time limit
-            sequence: nextSeq(),
-            pathId: 'p1',
-            operationId: counter,
-            idempotencyKey: `key-${counter}`,
-            attempt: 0,
-            deliveryIndex: 0,
-          },
-        ];
+        if (counter > 100001) return { enqueue: [], log: true };
+        return {
+          enqueue: [
+            {
+              type: 'RequestSent' as const,
+              timestamp: 0,
+              sequence: nextSeq(),
+              pathId: 'p1',
+              operationId: counter,
+              idempotencyKey: `key-${counter}`,
+              attempt: 0,
+              deliveryIndex: 0,
+            },
+          ],
+          log: true,
+        };
       },
     });
 
@@ -141,7 +144,7 @@ describe('simulate()', () => {
   });
 
   it('custom maxSimulationTimeMs is respected', () => {
-    const events: SimEvent[] = [
+    const events: QueueEvent[] = [
       makeEvent(50, 1),
       makeEvent(150, 2), // exceeds 100ms limit
     ];
@@ -153,7 +156,7 @@ describe('simulate()', () => {
   });
 
   it('events at same timestamp are processed in sequence order (FIFO)', () => {
-    const events: SimEvent[] = [
+    const events: QueueEvent[] = [
       makeEvent(10, 5),
       makeEvent(10, 3),
       makeEvent(10, 7),
@@ -167,7 +170,7 @@ describe('simulate()', () => {
   });
 
   it('timestamps are non-decreasing in output', () => {
-    const events: SimEvent[] = [
+    const events: QueueEvent[] = [
       makeEvent(100, 1),
       makeEvent(50, 2),
       makeEvent(200, 3),
@@ -182,26 +185,29 @@ describe('simulate()', () => {
   });
 
   it('processEvent can enqueue new events', () => {
-    const initial: SimEvent[] = [makeEvent(10, 1)];
+    const initial: QueueEvent[] = [makeEvent(10, 1)];
     const result = simulate({
       initialEvents: initial,
       processEvent: (event, nextSeq) => {
         if (event.timestamp === 10) {
-          return [
-            {
-              type: 'ResponseReceived' as const,
-              timestamp: 20,
-              sequence: nextSeq(),
-              pathId: 'p1',
-              operationId: 1,
-              success: true,
-              deduplicated: false,
-              late: false,
-              latency: 10,
-            },
-          ];
+          return {
+            enqueue: [
+              {
+                type: 'ResponseReceived' as const,
+                timestamp: 20,
+                sequence: nextSeq(),
+                pathId: 'p1',
+                operationId: 1,
+                success: true,
+                deduplicated: false,
+                late: false,
+                latency: 10,
+              },
+            ],
+            log: true,
+          };
         }
-        return [];
+        return { enqueue: [], log: true };
       },
     });
 
