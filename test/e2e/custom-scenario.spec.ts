@@ -24,7 +24,7 @@ test.describe('Custom scenario workflow', () => {
     await page.goto('/');
 
     // Use demo as it has a working scenario
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
     await page.getByLabel('Run simulation').click();
 
     await expect(page.getByRole('tablist', { name: 'Results views' })).toBeVisible();

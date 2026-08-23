@@ -5,7 +5,7 @@ test.describe('Cross-browser determinism', () => {
     await page.goto('/');
 
     // Load demo
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
     await page.getByLabel('Run simulation').click();
 
     // Wait for results

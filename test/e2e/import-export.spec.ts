@@ -5,7 +5,7 @@ import { writeFileSync, mkdirSync } from 'fs';
 test.describe('Import/Export', () => {
   test('export scenario produces a downloadable file', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
 
     // Start waiting for download before clicking
     const downloadPromise = page.waitForEvent('download');

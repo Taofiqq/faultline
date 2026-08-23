@@ -11,7 +11,7 @@ test.describe('Error and stopped states', () => {
     await page.goto('/');
 
     // Load demo, run successfully
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
     await page.getByLabel('Run simulation').click();
     await expect(page.getByRole('tablist', { name: 'Results views' })).toBeVisible();
 
@@ -23,7 +23,7 @@ test.describe('Error and stopped states', () => {
   test('status shows diagnostic when simulation stops', async ({ page }) => {
     await page.goto('/');
     // Load demo and run - the status bar should show info
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
     await page.getByLabel('Run simulation').click();
 
     // Wait for footer status to update

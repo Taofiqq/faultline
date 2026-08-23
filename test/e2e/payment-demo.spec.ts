@@ -5,7 +5,7 @@ test.describe('Payment demonstration', () => {
     await page.goto('/');
 
     // Load demo
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
 
     // Verify demo loaded - seed should be 0
     await expect(page.getByLabel('Random seed')).toHaveValue('0');
@@ -43,7 +43,7 @@ test.describe('Payment demonstration', () => {
 
   test('evidence links navigate to correct event', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
     await page.getByLabel('Run simulation').click();
     await expect(page.getByRole('tablist', { name: 'Results views' })).toBeVisible();
     await page.getByRole('tab', { name: 'Invariants' }).click();

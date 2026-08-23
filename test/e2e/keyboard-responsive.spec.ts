@@ -7,7 +7,7 @@ test.describe('Keyboard and responsive', () => {
     // Tab to Load Demo and press Enter
     await page.keyboard.press('Tab'); // skip link
     // Navigate to Load Demo button via keyboard
-    const loadDemo = page.getByRole('button', { name: /load demo/i });
+    const loadDemo = page.getByRole('button', { name: /load payment demo/i });
     await loadDemo.focus();
     await page.keyboard.press('Enter');
 
@@ -22,7 +22,7 @@ test.describe('Keyboard and responsive', () => {
 
   test('results tabs are keyboard navigable', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: /load demo/i }).click();
+    await page.getByRole('button', { name: /load payment demo/i }).click();
     await page.getByLabel('Run simulation').click();
     await expect(page.getByRole('tablist', { name: 'Results views' })).toBeVisible();
 
