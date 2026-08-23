@@ -1,0 +1,223 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://faultline.dev/schema/v1",
+  "title": "Faultline Scenario v1",
+  "type": "object",
+  "required": ["schemaVersion", "seed", "services", "paths", "invariants"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "maxSimulationTimeMs": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 60000
+    },
+    "services": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/service" }
+    },
+    "paths": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/path" }
+    },
+    "invariants": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/invariant" }
+    }
+  },
+  "definitions": {
+    "service": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "path": {
+      "type": "object",
+      "required": [
+        "id",
+        "source",
+        "destination",
+        "label",
+        "deadlineMs",
+        "operationName",
+        "failures",
+        "resilience"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "destination": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "deadlineMs": { "type": "number", "exclusiveMinimum": 0 },
+        "operationName": { "type": "string", "minLength": 1 },
+        "sideEffect": { "type": "string", "minLength": 1 },
+        "failures": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/failureInjection" }
+        },
+        "resilience": { "$ref": "#/definitions/resilience" }
+      }
+    },
+    "failureInjection": {
+      "oneOf": [
+        { "$ref": "#/definitions/fixedLatency" },
+        { "$ref": "#/definitions/randomLatency" },
+        { "$ref": "#/definitions/lostResponse" },
+        { "$ref": "#/definitions/serviceError" },
+        { "$ref": "#/definitions/duplicateRequest" }
+      ]
+    },
+    "fixedLatency": {
+      "type": "object",
+      "required": ["type", "ms", "probability"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "fixedLatency" },
+        "ms": { "type": "number", "minimum": 0 },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "randomLatency": {
+      "type": "object",
+      "required": ["type", "minMs", "maxMs", "probability"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "randomLatency" },
+        "minMs": { "type": "number", "minimum": 0 },
+        "maxMs": { "type": "number", "minimum": 0 },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "lostResponse": {
+      "type": "object",
+      "required": ["type", "probability"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "lostResponse" },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "serviceError": {
+      "type": "object",
+      "required": ["type", "probability"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "serviceError" },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "duplicateRequest": {
+      "type": "object",
+      "required": ["type", "count", "probability"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "duplicateRequest" },
+        "count": { "type": "integer", "minimum": 2 },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "resilience": {
+      "type": "object",
+      "required": ["idempotencyEnabled"],
+      "additionalProperties": false,
+      "properties": {
+        "idempotencyEnabled": { "type": "boolean" },
+        "retry": { "$ref": "#/definitions/retryConfig" },
+        "circuitBreaker": { "$ref": "#/definitions/circuitBreakerConfig" }
+      }
+    },
+    "retryConfig": {
+      "type": "object",
+      "required": ["maxRetries", "baseDelay", "jitterFactor"],
+      "additionalProperties": false,
+      "properties": {
+        "maxRetries": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "baseDelay": { "type": "number", "exclusiveMinimum": 0 },
+        "jitterFactor": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "circuitBreakerConfig": {
+      "type": "object",
+      "required": ["failureThreshold", "cooldownMs"],
+      "additionalProperties": false,
+      "properties": {
+        "failureThreshold": { "type": "integer", "minimum": 1 },
+        "cooldownMs": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "invariant": {
+      "oneOf": [
+        { "$ref": "#/definitions/maxSideEffectCountInvariant" },
+        { "$ref": "#/definitions/maxRequestCountInvariant" },
+        { "$ref": "#/definitions/requiredSuccessCountInvariant" },
+        { "$ref": "#/definitions/maxCompletionTimeInvariant" },
+        { "$ref": "#/definitions/noPendingRequestsInvariant" }
+      ]
+    },
+    "maxSideEffectCountInvariant": {
+      "type": "object",
+      "required": ["type", "id", "effectName", "maxCount"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "maxSideEffectCount" },
+        "id": { "type": "string", "minLength": 1 },
+        "effectName": { "type": "string", "minLength": 1 },
+        "maxCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "maxRequestCountInvariant": {
+      "type": "object",
+      "required": ["type", "id", "pathId", "maxCount"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "maxRequestCount" },
+        "id": { "type": "string", "minLength": 1 },
+        "pathId": { "type": "string", "minLength": 1 },
+        "maxCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "requiredSuccessCountInvariant": {
+      "type": "object",
+      "required": ["type", "id", "pathId", "minCount"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "requiredSuccessCount" },
+        "id": { "type": "string", "minLength": 1 },
+        "pathId": { "type": "string", "minLength": 1 },
+        "minCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "maxCompletionTimeInvariant": {
+      "type": "object",
+      "required": ["type", "id", "maxMs"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "maxCompletionTime" },
+        "id": { "type": "string", "minLength": 1 },
+        "maxMs": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "noPendingRequestsInvariant": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "noPendingRequests" },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
