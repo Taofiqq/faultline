@@ -15,7 +15,7 @@ export default defineConfig({
     setupFiles: ['test/setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/engine/**', 'src/invariants/**'],
+      include: ['src/engine/**', 'src/invariants/**', 'src/metrics/**'],
       thresholds: {
         branches: 90,
       },

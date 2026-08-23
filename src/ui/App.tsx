@@ -11,7 +11,9 @@ import { ImportExportControls } from './ImportExportControls';
 import type { DemoSnapshot } from './DemoLauncher';
 import { validateDraft } from './state/useAppState';
 
-const ResultsWorkspace = lazy(() => import('./ResultsWorkspace').then(m => ({ default: m.ResultsWorkspace })));
+const ResultsWorkspace = lazy(() =>
+  import('./ResultsWorkspace').then((m) => ({ default: m.ResultsWorkspace })),
+);
 
 export function App() {
   const app = useAppState();
@@ -61,7 +63,9 @@ export function App() {
 
   return (
     <div className="app">
-      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <header className="app-header" role="banner">
         <div className="app-header__brand">
           <h1 className="app-header__title">Faultline</h1>
@@ -123,7 +127,11 @@ export function App() {
           />
         </section>
 
-        <aside className="app-workspace__panel" role="complementary" aria-label="Scenario inspector">
+        <aside
+          className="app-workspace__panel"
+          role="complementary"
+          aria-label="Scenario inspector"
+        >
           <ScenarioPanel
             draft={state.draft}
             selectedServiceId={state.selectedServiceId}
@@ -141,7 +149,13 @@ export function App() {
       </main>
 
       <section className="app-results" aria-label="Simulation results">
-        <Suspense fallback={<div className="results-workspace results-workspace--empty"><p>Loading...</p></div>}>
+        <Suspense
+          fallback={
+            <div className="results-workspace results-workspace--empty">
+              <p>Loading...</p>
+            </div>
+          }
+        >
           <ResultsWorkspace
             simulationResult={state.simulationResult}
             invariantResults={state.invariantResults}

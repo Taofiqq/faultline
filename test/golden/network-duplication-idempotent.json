@@ -1,0 +1,172 @@
+{
+  "scenario": {
+    "seed": 100,
+    "schemaVersion": 1
+  },
+  "events": [
+    {
+      "type": "RequestSent",
+      "timestamp": 0,
+      "sequence": 1,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 0,
+      "deliveryIndex": 0
+    },
+    {
+      "type": "RequestArrived",
+      "timestamp": 0,
+      "sequence": 2,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 0,
+      "deliveryIndex": 0,
+      "deduplicated": false
+    },
+    {
+      "type": "RequestArrived",
+      "timestamp": 0,
+      "sequence": 3,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 0,
+      "deliveryIndex": 1,
+      "deduplicated": true
+    },
+    {
+      "type": "RequestArrived",
+      "timestamp": 0,
+      "sequence": 4,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 0,
+      "deliveryIndex": 2,
+      "deduplicated": true
+    },
+    {
+      "type": "SideEffect",
+      "timestamp": 0,
+      "sequence": 6,
+      "serviceId": "server",
+      "effectName": "fulfill",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 0
+    },
+    {
+      "type": "ResponseSent",
+      "timestamp": 0,
+      "sequence": 7,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 0,
+      "success": true,
+      "deduplicated": false
+    },
+    {
+      "type": "ResponseSent",
+      "timestamp": 0,
+      "sequence": 8,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 1,
+      "success": true,
+      "deduplicated": true
+    },
+    {
+      "type": "ResponseSent",
+      "timestamp": 0,
+      "sequence": 9,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 2,
+      "success": true,
+      "deduplicated": true
+    },
+    {
+      "type": "ResponseReceived",
+      "timestamp": 0,
+      "sequence": 10,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 0,
+      "success": true,
+      "deduplicated": false,
+      "late": false,
+      "latency": 0
+    },
+    {
+      "type": "ResponseReceived",
+      "timestamp": 0,
+      "sequence": 11,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 1,
+      "success": true,
+      "deduplicated": true,
+      "late": true,
+      "latency": 0
+    },
+    {
+      "type": "ResponseReceived",
+      "timestamp": 0,
+      "sequence": 12,
+      "pathId": "client-to-server",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 2,
+      "success": true,
+      "deduplicated": true,
+      "late": true,
+      "latency": 0
+    }
+  ],
+  "metrics": {
+    "totalRequests": 1,
+    "totalAttempts": 1,
+    "totalDeliveries": 3,
+    "retries": 0,
+    "failuresByType": {
+      "timeout": 0,
+      "serviceError": 0,
+      "circuitOpen": 0,
+      "responseLost": 0
+    },
+    "duplicateDeliveries": 2,
+    "deduplications": 2,
+    "sideEffectCounts": {
+      "fulfill": 1
+    },
+    "successfulCallerOutcomes": 1,
+    "circuitTransitions": 0,
+    "p50Latency": 0,
+    "p95Latency": 0,
+    "p99Latency": 0,
+    "totalEvents": 11,
+    "simulatedDuration": 0
+  },
+  "invariantResults": [
+    {
+      "invariantId": "inv-fulfill-once",
+      "type": "maxSideEffectCount",
+      "passed": true,
+      "actual": 1,
+      "threshold": 1,
+      "message": "Effect \"fulfill\" occurred 1 time(s), within limit of 1",
+      "evidence": []
+    }
+  ],
+  "stopped": false,
+  "stopReason": null,
+  "totalEvents": 12,
+  "finalTimestamp": 5000
+}

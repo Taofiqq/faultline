@@ -1,0 +1,181 @@
+{
+  "scenario": {
+    "seed": 0,
+    "schemaVersion": 1
+  },
+  "events": [
+    {
+      "type": "RequestSent",
+      "timestamp": 0,
+      "sequence": 1,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 0,
+      "deliveryIndex": 0
+    },
+    {
+      "type": "RequestArrived",
+      "timestamp": 0,
+      "sequence": 2,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 0,
+      "deliveryIndex": 0,
+      "deduplicated": false
+    },
+    {
+      "type": "SideEffect",
+      "timestamp": 0,
+      "sequence": 4,
+      "serviceId": "payment",
+      "effectName": "charge",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 0
+    },
+    {
+      "type": "ResponseSent",
+      "timestamp": 0,
+      "sequence": 5,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 0,
+      "success": true,
+      "deduplicated": false
+    },
+    {
+      "type": "ResponseLost",
+      "timestamp": 0,
+      "sequence": 6,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "attempt": 0,
+      "deliveryIndex": 0
+    },
+    {
+      "type": "TimeoutError",
+      "timestamp": 3000,
+      "sequence": 7,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "attempt": 0
+    },
+    {
+      "type": "RetryScheduled",
+      "timestamp": 3000,
+      "sequence": 8,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "nextAttempt": 1,
+      "delay": 100
+    },
+    {
+      "type": "RequestSent",
+      "timestamp": 3100,
+      "sequence": 9,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 1,
+      "deliveryIndex": 0
+    },
+    {
+      "type": "RequestArrived",
+      "timestamp": 3100,
+      "sequence": 10,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "idempotencyKey": "op-1",
+      "attempt": 1,
+      "deliveryIndex": 0,
+      "deduplicated": false
+    },
+    {
+      "type": "SideEffect",
+      "timestamp": 3100,
+      "sequence": 12,
+      "serviceId": "payment",
+      "effectName": "charge",
+      "operationId": 1,
+      "attempt": 1,
+      "deliveryIndex": 0
+    },
+    {
+      "type": "ResponseSent",
+      "timestamp": 3100,
+      "sequence": 13,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "attempt": 1,
+      "deliveryIndex": 0,
+      "success": true,
+      "deduplicated": false
+    },
+    {
+      "type": "ResponseReceived",
+      "timestamp": 3100,
+      "sequence": 14,
+      "pathId": "gateway-to-payment",
+      "operationId": 1,
+      "attempt": 1,
+      "deliveryIndex": 0,
+      "success": true,
+      "deduplicated": false,
+      "late": false,
+      "latency": 0
+    }
+  ],
+  "metrics": {
+    "totalRequests": 2,
+    "totalAttempts": 2,
+    "totalDeliveries": 2,
+    "retries": 1,
+    "failuresByType": {
+      "timeout": 1,
+      "serviceError": 0,
+      "circuitOpen": 0,
+      "responseLost": 1
+    },
+    "duplicateDeliveries": 0,
+    "deduplications": 0,
+    "sideEffectCounts": {
+      "charge": 2
+    },
+    "successfulCallerOutcomes": 1,
+    "circuitTransitions": 0,
+    "p50Latency": 0,
+    "p95Latency": 0,
+    "p99Latency": 0,
+    "totalEvents": 12,
+    "simulatedDuration": 3100
+  },
+  "invariantResults": [
+    {
+      "invariantId": "inv-charge-at-most-once",
+      "type": "maxSideEffectCount",
+      "passed": false,
+      "actual": 2,
+      "threshold": 1,
+      "message": "Effect \"charge\" occurred 2 time(s), exceeding limit of 1",
+      "evidence": [
+        {
+          "sequence": 4,
+          "timestamp": 0,
+          "description": "SideEffect \"charge\" at t=0"
+        },
+        {
+          "sequence": 12,
+          "timestamp": 3100,
+          "description": "SideEffect \"charge\" at t=3100"
+        }
+      ]
+    }
+  ],
+  "stopped": false,
+  "stopReason": null,
+  "totalEvents": 14,
+  "finalTimestamp": 6100
+}
