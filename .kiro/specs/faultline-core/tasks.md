@@ -100,25 +100,25 @@
 
 ## Milestone 5: Retries, Idempotency & Deterministic Replay (P0)
 
-- [ ] **5.1** Implement retry scheduler (`src/engine/retry-scheduler.ts`): exponential backoff with PRNG jitter, cap at 2³¹−1, zero-retries = no retry. [US-4 Retries, US-4 Backoff, design.md §Retry Scheduler]
+- [x] **5.1** Implement retry scheduler (`src/engine/retry-scheduler.ts`): exponential backoff with PRNG jitter, cap at 2³¹−1, zero-retries = no retry. [US-4 Retries, US-4 Backoff, design.md §Retry Scheduler]
   - Deps: 3.1, 4.4
   - Verify: Unit test — delay formula correct for known PRNG outputs; cap enforced.
-- [ ] **5.2** Integrate retry into T4: schedule RetryScheduled → new RequestSent on timeout/service-error; circuit-open not retried. [US-4 Retries AC-3, AC-4]
+- [x] **5.2** Integrate retry into T4: schedule RetryScheduled → new RequestSent on timeout/service-error; circuit-open not retried. [US-4 Retries AC-3, AC-4]
   - Deps: 5.1
   - Verify: Unit test — timeout triggers retry; circuit-open does not.
-- [ ] **5.3** Implement idempotency registry (`src/engine/idempotency-registry.ts`): success-only cache, scoped to (dest, op, key). [US-4 Idempotency, design.md §Idempotency Registry]
+- [x] **5.3** Implement idempotency registry (`src/engine/idempotency-registry.ts`): success-only cache, scoped to (dest, op, key). [US-4 Idempotency, design.md §Idempotency Registry]
   - Deps: 4.2
   - Verify: Unit test — first call stores; second returns cached; errors not cached.
-- [ ] **5.4** Integrate idempotency into T2: deduplicated requests return cached response, no side-effect. [US-4 Idempotency AC-4, AC side-effects]
+- [x] **5.4** Integrate idempotency into T2: deduplicated requests return cached response, no side-effect. [US-4 Idempotency AC-4, AC side-effects]
   - Deps: 5.3
   - Verify: Unit test — duplicate key produces `deduplicated: true` response, no SideEffect.
-- [ ] **5.5** Verify deterministic replay: same seed × 2 runs → identical normalized event sequence. [US-5]
+- [x] **5.5** Verify deterministic replay: same seed × 2 runs → identical normalized event sequence. [US-5]
   - Deps: 5.1–5.4
   - Verify: Integration test — deep-equal assertion on two runs of demo scenario.
-- [ ] **5.6** Run payment demo with idempotency enabled: verify single SideEffect("charge"). [US-8 AC-6]
+- [x] **5.6** Run payment demo with idempotency enabled: verify single SideEffect("charge"). [US-8 AC-6]
   - Deps: 5.4, 4.5
   - Verify: Integration test — exactly 1 charge side-effect with idempotency on.
-- [ ] **5.7** Write `test/engine/retry-scheduler.test.ts` and `test/engine/idempotency-registry.test.ts`. [testing.md]
+- [x] **5.7** Write `test/engine/retry-scheduler.test.ts` and `test/engine/idempotency-registry.test.ts`. [testing.md]
   - Deps: 5.1, 5.3
   - Verify: All tests pass.
 

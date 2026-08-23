@@ -1,16 +1,17 @@
 /**
  * Failure Pipeline — Multi-event transitions T1–T4.
  *
- * Milestone 4 (minimal slice): No retries, idempotency, network duplication,
- * service errors, or circuit breakers. Those are added in M5–M6.
+ * M5: Adds retry scheduling and idempotency registry.
+ * Not yet: network duplication, service errors, circuit breakers.
  */
 
 import type { SimEvent } from './types';
 import type { PRNG } from './prng';
 import type { Scenario, Path } from '../scenario/types';
+import { computeRetryDelay } from './retry-scheduler';
+import { IdempotencyRegistry } from './idempotency-registry';
 
 // ─── Internal Event: Deadline Check ──────────────────────────────────────────
-// Not part of the public event log. Used internally to schedule timeout checks.
 
 export interface DeadlineCheckEvent {
   type: '_DeadlineCheck';
@@ -22,7 +23,6 @@ export interface DeadlineCheckEvent {
   deliveryIndex: number;
 }
 
-/** Union of public SimEvents and internal events for the queue. */
 export type QueueEvent = SimEvent | DeadlineCheckEvent;
 
 // ─── Operation State ─────────────────────────────────────────────────────────
@@ -37,9 +37,17 @@ export interface OperationAttemptState {
   resolved: boolean;
 }
 
+/** Tracks retry budget per logical operation */
+export interface OperationBudget {
+  maxRetries: number;
+  retriesUsed: number;
+}
+
 export interface PipelineState {
   attempts: Map<string, OperationAttemptState>;
+  budgets: Map<number, OperationBudget>; // operationId → budget
   paths: Map<string, Path>;
+  idempotency: IdempotencyRegistry;
   nextOperationId: number;
 }
 
@@ -54,7 +62,9 @@ export function createPipelineState(scenario: Scenario): PipelineState {
   }
   return {
     attempts: new Map(),
+    budgets: new Map(),
     paths,
+    idempotency: new IdempotencyRegistry(),
     nextOperationId: 1,
   };
 }
@@ -62,11 +72,8 @@ export function createPipelineState(scenario: Scenario): PipelineState {
 // ─── Pipeline Processor Result ───────────────────────────────────────────────
 
 export interface ProcessResult {
-  /** Events to enqueue (may include internal _DeadlineCheck) */
   enqueue: QueueEvent[];
-  /** Whether the current event should be logged (false = suppress from log) */
   log: boolean;
-  /** Optional replacement event to log instead of the original */
   logAs?: SimEvent;
 }
 
@@ -92,6 +99,14 @@ function processRequestSent(
     sentAt: event.timestamp,
     resolved: false,
   });
+
+  // Initialize retry budget on first attempt
+  if (event.attempt === 0 && path.resilience.retry) {
+    state.budgets.set(event.operationId, {
+      maxRetries: path.resilience.retry.maxRetries,
+      retriesUsed: 0,
+    });
+  }
 
   // Calculate request latency
   let requestLatency = 0;
@@ -150,8 +165,36 @@ function processRequestArrived(
 
   const enqueue: QueueEvent[] = [];
 
-  // Emit side-effect if configured (successful, non-deduplicated)
-  if (path.sideEffect && !event.deduplicated) {
+  // Idempotency check
+  if (path.resilience.idempotencyEnabled) {
+    const idempKey = IdempotencyRegistry.buildKey(
+      path.destination,
+      path.operationName,
+      event.idempotencyKey,
+    );
+    const cached = state.idempotency.lookup(idempKey);
+    if (cached) {
+      // Deduplicated — return cached response, no side-effect
+      enqueue.push({
+        type: 'ResponseSent',
+        timestamp: event.timestamp,
+        sequence: nextSequence(),
+        pathId: event.pathId,
+        operationId: event.operationId,
+        success: true,
+        deduplicated: true,
+      });
+      // Log the arrival as deduplicated
+      return {
+        enqueue,
+        log: true,
+        logAs: { ...event, deduplicated: true },
+      };
+    }
+  }
+
+  // Process: emit side-effect if configured
+  if (path.sideEffect) {
     enqueue.push({
       type: 'SideEffect',
       timestamp: event.timestamp,
@@ -162,6 +205,16 @@ function processRequestArrived(
     });
   }
 
+  // Store in idempotency registry (success-only, before response is sent)
+  if (path.resilience.idempotencyEnabled) {
+    const idempKey = IdempotencyRegistry.buildKey(
+      path.destination,
+      path.operationName,
+      event.idempotencyKey,
+    );
+    state.idempotency.store(idempKey, { success: true });
+  }
+
   // Emit ResponseSent (success)
   enqueue.push({
     type: 'ResponseSent',
@@ -170,7 +223,7 @@ function processRequestArrived(
     pathId: event.pathId,
     operationId: event.operationId,
     success: true,
-    deduplicated: event.deduplicated,
+    deduplicated: false,
   });
 
   return { enqueue, log: true };
@@ -205,7 +258,7 @@ function processResponseSent(
     }
   }
 
-  // Calculate response latency (apply latency injections again for response path)
+  // Calculate response latency
   let responseLatency = 0;
   for (const failure of path.failures) {
     if (failure.type === 'fixedLatency') {
@@ -220,9 +273,14 @@ function processResponseSent(
   }
 
   // Find the attempt state to calculate total latency
-  const key = attemptKey(event.operationId, 0, 0); // M4: always attempt 0, delivery 0
-  const attemptState = state.attempts.get(key);
-  const sentAt = attemptState?.sentAt ?? 0;
+  // Look for any attempt with matching operationId (use the most recent attempt)
+  let sentAt = 0;
+  for (const [, attempt] of state.attempts) {
+    if (attempt.operationId === event.operationId && attempt.pathId === event.pathId) {
+      sentAt = attempt.sentAt;
+    }
+  }
+
   const receiveTime = event.timestamp + responseLatency;
   const totalLatency = receiveTime - sentAt;
 
@@ -235,7 +293,7 @@ function processResponseSent(
       operationId: event.operationId,
       success: event.success,
       deduplicated: event.deduplicated,
-      late: false, // determined at T4
+      late: false,
       latency: totalLatency,
     },
   ];
@@ -249,37 +307,47 @@ function processResponseReceived(
   event: Extract<SimEvent, { type: 'ResponseReceived' }>,
   state: PipelineState,
 ): ProcessResult {
-  const key = attemptKey(event.operationId, 0, 0); // M4: attempt 0, delivery 0
-  const attemptState = state.attempts.get(key);
+  // Find the latest unresolved attempt for this operation
+  let latestAttempt: OperationAttemptState | undefined;
+  for (const [, attempt] of state.attempts) {
+    if (attempt.operationId === event.operationId && attempt.pathId === event.pathId) {
+      if (!latestAttempt || attempt.attempt > latestAttempt.attempt) {
+        latestAttempt = attempt;
+      }
+    }
+  }
 
-  if (!attemptState || attemptState.resolved) {
-    // Attempt already resolved (timeout fired first) — this is a late response
+  if (!latestAttempt || latestAttempt.resolved) {
+    // All attempts resolved — this is a late response
     return { enqueue: [], log: true, logAs: { ...event, late: true } };
   }
 
   // Mark attempt as resolved
-  attemptState.resolved = true;
+  latestAttempt.resolved = true;
   return { enqueue: [], log: true };
 }
 
-// ─── Internal: DeadlineCheck ─────────────────────────────────────────────────
+// ─── Internal: DeadlineCheck → TimeoutError + optional Retry ─────────────────
 
 function processDeadlineCheck(
   event: DeadlineCheckEvent,
   state: PipelineState,
+  prng: PRNG,
   nextSequence: () => number,
 ): ProcessResult {
   const key = attemptKey(event.operationId, event.attempt, event.deliveryIndex);
   const attemptState = state.attempts.get(key);
 
   if (!attemptState || attemptState.resolved) {
-    // Response already arrived — timeout is a no-op, suppress from log
     return { enqueue: [], log: false };
   }
 
-  // Timeout fires — mark resolved and emit TimeoutError
+  // Timeout fires
   attemptState.resolved = true;
 
+  const enqueue: QueueEvent[] = [];
+
+  // Emit TimeoutError
   const timeoutEvent: SimEvent = {
     type: 'TimeoutError',
     timestamp: event.timestamp,
@@ -288,8 +356,43 @@ function processDeadlineCheck(
     operationId: event.operationId,
     attempt: event.attempt,
   };
+  enqueue.push(timeoutEvent);
 
-  return { enqueue: [timeoutEvent], log: false };
+  // Check retry budget
+  const path = state.paths.get(event.pathId);
+  const budget = state.budgets.get(event.operationId);
+  if (path?.resilience.retry && budget && budget.retriesUsed < budget.maxRetries) {
+    budget.retriesUsed++;
+    const nextAttempt = event.attempt + 1;
+    const delay = computeRetryDelay(event.attempt, path.resilience.retry, prng);
+
+    // Emit RetryScheduled
+    const retryScheduled: SimEvent = {
+      type: 'RetryScheduled',
+      timestamp: event.timestamp,
+      sequence: nextSequence(),
+      pathId: event.pathId,
+      operationId: event.operationId,
+      nextAttempt,
+      delay,
+    };
+    enqueue.push(retryScheduled);
+
+    // Schedule new RequestSent for the retry
+    const retryEvent: SimEvent = {
+      type: 'RequestSent',
+      timestamp: event.timestamp + delay,
+      sequence: nextSequence(),
+      pathId: event.pathId,
+      operationId: event.operationId,
+      idempotencyKey: attemptState.idempotencyKey,
+      attempt: nextAttempt,
+      deliveryIndex: 0,
+    };
+    enqueue.push(retryEvent);
+  }
+
+  return { enqueue, log: false };
 }
 
 // ─── Main Dispatcher ─────────────────────────────────────────────────────────
@@ -310,7 +413,7 @@ export function processPipelineEvent(
     case 'ResponseReceived':
       return processResponseReceived(event, state);
     case '_DeadlineCheck':
-      return processDeadlineCheck(event, state, nextSequence);
+      return processDeadlineCheck(event, state, prng, nextSequence);
     default:
       return { enqueue: [], log: true };
   }
