@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, lazy, Suspense } from 'react';
 import './tokens.css';
 import './App.css';
 import './Results.css';
@@ -6,11 +6,12 @@ import { useAppState } from './state/useAppState';
 import { TopologyGraph } from './TopologyGraph';
 import { ScenarioPanel } from './ScenarioPanel';
 import { RunStatus } from './RunStatus';
-import { ResultsWorkspace } from './ResultsWorkspace';
 import { DemoLauncher } from './DemoLauncher';
 import { ImportExportControls } from './ImportExportControls';
 import type { DemoSnapshot } from './DemoLauncher';
 import { validateDraft } from './state/useAppState';
+
+const ResultsWorkspace = lazy(() => import('./ResultsWorkspace').then(m => ({ default: m.ResultsWorkspace })));
 
 export function App() {
   const app = useAppState();
@@ -60,7 +61,8 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <header className="app-header" role="banner">
         <div className="app-header__brand">
           <h1 className="app-header__title">Faultline</h1>
           <span className="app-header__subtitle">Distributed Systems Failure Simulator</span>
@@ -105,7 +107,7 @@ export function App() {
         </div>
       </header>
 
-      <main className="app-workspace">
+      <main className="app-workspace" role="main" id="main-content">
         <section className="app-workspace__canvas" aria-label="Topology editor">
           <TopologyGraph
             services={state.draft.services}
@@ -121,7 +123,7 @@ export function App() {
           />
         </section>
 
-        <aside className="app-workspace__panel" aria-label="Scenario inspector">
+        <aside className="app-workspace__panel" role="complementary" aria-label="Scenario inspector">
           <ScenarioPanel
             draft={state.draft}
             selectedServiceId={state.selectedServiceId}
@@ -139,16 +141,18 @@ export function App() {
       </main>
 
       <section className="app-results" aria-label="Simulation results">
-        <ResultsWorkspace
-          simulationResult={state.simulationResult}
-          invariantResults={state.invariantResults}
-          metrics={state.metrics}
-          onSelectEvent={handleSelectEvent}
-          selectedEventSequence={selectedEventSequence}
-        />
+        <Suspense fallback={<div className="results-workspace results-workspace--empty"><p>Loading...</p></div>}>
+          <ResultsWorkspace
+            simulationResult={state.simulationResult}
+            invariantResults={state.invariantResults}
+            metrics={state.metrics}
+            onSelectEvent={handleSelectEvent}
+            selectedEventSequence={selectedEventSequence}
+          />
+        </Suspense>
       </section>
 
-      <footer className="app-footer" aria-label="Results summary">
+      <footer className="app-footer" role="contentinfo" aria-label="Results summary">
         <RunStatus
           status={state.status}
           validationErrors={state.validationErrors}

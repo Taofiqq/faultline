@@ -11,10 +11,16 @@ interface PathEditorProps {
 
 export function PathEditor({
   path,
+  validationErrors,
   onUpdate,
   onUpdateFailures,
   onUpdateResilience,
 }: PathEditorProps) {
+  const pathErrors = validationErrors.filter((e) => e.path.startsWith(`paths.${path.id}`));
+  const labelError = pathErrors.find((e) => e.path.includes('label'));
+  const deadlineError = pathErrors.find((e) => e.path.includes('deadlineMs'));
+  const operationNameError = pathErrors.find((e) => e.path.includes('operationName'));
+
   return (
     <div className="scenario-panel__section">
       <h3 className="panel-heading">Path: {path.label}</h3>
@@ -23,28 +29,49 @@ export function PathEditor({
       <label className="field">
         <span className="label-text">Label</span>
         <input
-          className="input"
+          className={`input${labelError ? ' input--error' : ''}`}
           value={path.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
+          aria-invalid={labelError ? true : undefined}
+          aria-describedby={labelError ? `path-label-error-${path.id}` : undefined}
         />
+        {labelError && (
+          <span id={`path-label-error-${path.id}`} className="field-error" role="alert">
+            {labelError.message}
+          </span>
+        )}
       </label>
       <label className="field">
         <span className="label-text">Deadline (ms)</span>
         <input
-          className="input"
+          className={`input${deadlineError ? ' input--error' : ''}`}
           type="number"
           min={1}
           value={path.deadlineMs ?? ''}
           onChange={(e) => onUpdate({ deadlineMs: e.target.value ? Number(e.target.value) : null })}
+          aria-invalid={deadlineError ? true : undefined}
+          aria-describedby={deadlineError ? `path-deadline-error-${path.id}` : undefined}
         />
+        {deadlineError && (
+          <span id={`path-deadline-error-${path.id}`} className="field-error" role="alert">
+            {deadlineError.message}
+          </span>
+        )}
       </label>
       <label className="field">
         <span className="label-text">Operation Name</span>
         <input
-          className="input"
+          className={`input${operationNameError ? ' input--error' : ''}`}
           value={path.operationName}
           onChange={(e) => onUpdate({ operationName: e.target.value })}
+          aria-invalid={operationNameError ? true : undefined}
+          aria-describedby={operationNameError ? `path-opname-error-${path.id}` : undefined}
         />
+        {operationNameError && (
+          <span id={`path-opname-error-${path.id}`} className="field-error" role="alert">
+            {operationNameError.message}
+          </span>
+        )}
       </label>
       <label className="field">
         <span className="label-text">Side Effect (optional)</span>
