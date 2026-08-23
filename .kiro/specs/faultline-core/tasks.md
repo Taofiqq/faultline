@@ -152,19 +152,19 @@
 
 ## Milestone 7: Invariants & Metrics (P0)
 
-- [ ] **7.1** Implement invariant evaluator (`src/invariants/evaluator.ts`): all 5 built-in types, evidence collection. [US-6, design.md §Invariant Evaluator]
+- [x] **7.1** Implement invariant evaluator (`src/invariants/evaluator.ts`): all 5 built-in types, evidence collection. [US-6, design.md §Invariant Evaluator]
   - Deps: 3.3
   - Verify: Unit test — each type pass/fail with crafted event logs.
-- [ ] **7.2** Implement metrics module (`src/metrics/compute.ts`): counts, percentiles, durations from EventLog; exclude late responses from latency stats. [US-3 metrics, design.md §Metrics Module]
+- [x] **7.2** Implement metrics module (`src/metrics/compute.ts`): counts, percentiles, durations from EventLog; exclude late responses from latency stats. [US-3 metrics, design.md §Metrics Module]
   - Deps: 3.3
   - Verify: Unit test — correct values from crafted log.
-- [ ] **7.3** Write `test/invariants/evaluator.test.ts` — each invariant type, evidence correctness, late/dedup exclusions. [testing.md]
+- [x] **7.3** Write `test/invariants/evaluator.test.ts` — each invariant type, evidence correctness, late/dedup exclusions. [testing.md]
   - Deps: 7.1
   - Verify: All tests pass.
-- [ ] **7.4** Write `test/metrics/compute.test.ts`. [testing.md]
+- [x] **7.4** Write `test/metrics/compute.test.ts`. [testing.md]
   - Deps: 7.2
   - Verify: All tests pass.
-- [ ] **7.5** Integration: run full payment demo → evaluate invariant → verify fail (no resilience) and pass (with idempotency). [US-8 AC-5, AC-6]
+- [x] **7.5** Integration: run full payment demo → evaluate invariant → verify fail (no resilience) and pass (with idempotency). [US-8 AC-5, AC-6]
   - Deps: 7.1, 5.6
   - Verify: Integration test asserts invariant results.
 
