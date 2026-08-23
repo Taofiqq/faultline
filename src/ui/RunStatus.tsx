@@ -7,6 +7,8 @@ import type { ValidationError } from '../scenario/types';
 interface RunStatusProps {
   status: AppStatus;
   validationErrors: ValidationError[];
+  importErrors: ValidationError[];
+  runtimeError: string | null;
   simulationResult: SimulationResult | null;
   invariantResults: InvariantResult[] | null;
   metrics: SimulationMetrics | null;
@@ -15,45 +17,65 @@ interface RunStatusProps {
 export function RunStatus({
   status,
   validationErrors,
+  importErrors,
+  runtimeError,
   simulationResult,
   invariantResults,
   metrics,
 }: RunStatusProps) {
-  if (status === 'empty') {
-    return <span className="run-status run-status--dim">Add services and paths to begin.</span>;
-  }
+  return (
+    <div aria-live="polite" aria-atomic="true">
+      {runtimeError && (
+        <div className="run-status run-status--error" role="alert">
+          ⚠ Runtime error: {runtimeError}. Try adjusting your scenario and re-running.
+        </div>
+      )}
 
-  if (status === 'invalid') {
-    return (
-      <span className="run-status run-status--error">
-        ✗ {validationErrors.length} validation error(s) — fix configuration to run.
-      </span>
-    );
-  }
+      {importErrors.length > 0 && (
+        <div className="run-status run-status--error" role="alert" aria-label="Import errors">
+          ✗ Import failed ({importErrors.length} error{importErrors.length > 1 ? 's' : ''}):
+          <ul className="import-error-list">
+            {importErrors.slice(0, 3).map((err, i) => (
+              <li key={i}>
+                <code>{err.path}</code>: {err.message}
+              </li>
+            ))}
+            {importErrors.length > 3 && <li>...and {importErrors.length - 3} more</li>}
+          </ul>
+        </div>
+      )}
 
-  if (status === 'editing') {
-    return <span className="run-status run-status--dim">Ready to run. Press ▶ Run.</span>;
-  }
+      {status === 'empty' && (
+        <span className="run-status run-status--dim">Add services and paths to begin.</span>
+      )}
 
-  if (status === 'completed' && simulationResult && invariantResults && metrics) {
-    const allPassed = invariantResults.every((r) => r.passed);
-    const passCount = invariantResults.filter((r) => r.passed).length;
-    const failCount = invariantResults.filter((r) => !r.passed).length;
+      {status === 'invalid' && (
+        <span className="run-status run-status--error">
+          ✗ {validationErrors.length} validation error(s) — fix configuration to run.
+        </span>
+      )}
 
-    return (
-      <span className={`run-status ${allPassed ? 'run-status--success' : 'run-status--error'}`}>
-        {allPassed ? '✓' : '✗'} {metrics.totalEvents} events | {metrics.simulatedDuration}ms
-        simulated
-        {invariantResults.length > 0 && (
-          <>
-            {' '}
-            | Invariants: {passCount} passed{failCount > 0 && `, ${failCount} failed`}
-          </>
-        )}
-        {simulationResult.stopped && <> | ⚠ Stopped: {simulationResult.stopReason}</>}
-      </span>
-    );
-  }
+      {status === 'editing' && !runtimeError && (
+        <span className="run-status run-status--dim">Ready to run. Press ▶ Run.</span>
+      )}
 
-  return <span className="run-status run-status--dim">—</span>;
+      {status === 'completed' && simulationResult && invariantResults && metrics && (
+        <span
+          className={`run-status ${invariantResults.every((r) => r.passed) ? 'run-status--success' : 'run-status--error'}`}
+        >
+          {invariantResults.every((r) => r.passed) ? '✓' : '✗'} {metrics.totalEvents} events |{' '}
+          {metrics.simulatedDuration}ms simulated
+          {invariantResults.length > 0 && (
+            <>
+              {' '}
+              | Invariants: {invariantResults.filter((r) => r.passed).length} passed
+              {invariantResults.some((r) => !r.passed) &&
+                `, ${invariantResults.filter((r) => !r.passed).length} failed`}
+            </>
+          )}
+          {simulationResult.stopped && <> | ⚠ Stopped: {simulationResult.stopReason}</>}
+        </span>
+      )}
+    </div>
+  );
 }

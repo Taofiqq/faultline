@@ -26,6 +26,7 @@ export interface AppState {
   draft: ScenarioDraft;
   status: AppStatus;
   validationErrors: ValidationError[];
+  importErrors: ValidationError[];
   simulationResult: SimulationResult | null;
   invariantResults: InvariantResult[] | null;
   metrics: SimulationMetrics | null;
@@ -35,6 +36,8 @@ export interface AppState {
   isDemoMode: boolean;
   baselineSnapshot: DemoSnapshot | null;
   isIdempotencyEnabled: boolean;
+  // Error state
+  runtimeError: string | null;
 }
 
 let nextId = 1;
@@ -98,6 +101,7 @@ export function useAppState() {
     draft: createEmptyDraft(),
     status: 'empty',
     validationErrors: [],
+    importErrors: [],
     simulationResult: null,
     invariantResults: null,
     metrics: null,
@@ -106,6 +110,7 @@ export function useAppState() {
     isDemoMode: false,
     baselineSnapshot: null,
     isIdempotencyEnabled: false,
+    runtimeError: null,
   });
 
   const updateDraft = useCallback((updater: (draft: ScenarioDraft) => ScenarioDraft) => {
@@ -250,26 +255,69 @@ export function useAppState() {
   }, []);
 
   const runSimulation = useCallback(() => {
-    const errors = validateDraft(state.draft);
-    if (errors.length > 0) {
-      setState((prev) => ({ ...prev, validationErrors: errors, status: 'invalid' }));
-      return;
+    try {
+      const errors = validateDraft(state.draft);
+      if (errors.length > 0) {
+        setState((prev) => ({
+          ...prev,
+          validationErrors: errors,
+          status: 'invalid',
+          runtimeError: null,
+        }));
+        return;
+      }
+
+      const scenario = draftToScenario(state.draft)!;
+      const result = simulateScenario(scenario);
+      const invResults = evaluateInvariants(result.events, scenario.invariants);
+      const metricsResult = computeMetrics(result.events);
+
+      setState((prev) => ({
+        ...prev,
+        validationErrors: [],
+        importErrors: [],
+        status: 'completed',
+        simulationResult: result,
+        invariantResults: invResults,
+        metrics: metricsResult,
+        runtimeError: null,
+      }));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        runtimeError: err instanceof Error ? err.message : 'An unexpected error occurred',
+        status: 'editing',
+      }));
     }
+  }, [state.draft]);
 
-    const scenario = draftToScenario(state.draft)!;
-    const result = simulateScenario(scenario);
-    const invResults = evaluateInvariants(result.events, scenario.invariants);
-    const metricsResult = computeMetrics(result.events);
+  const handleImportError = useCallback((errors: ValidationError[]) => {
+    setState((prev) => ({ ...prev, importErrors: errors }));
+  }, []);
 
+  const handleImportSuccess = useCallback((scenario: Scenario) => {
+    const draft: ScenarioDraft = {
+      services: scenario.services.map((s) => ({ ...s })),
+      paths: scenario.paths.map((p) => ({ ...p, resilience: { ...p.resilience } })),
+      invariants: scenario.invariants.map((inv) => ({ ...inv }) as unknown as InvariantDraft),
+      seed: scenario.seed,
+      maxSimulationTimeMs: scenario.maxSimulationTimeMs,
+    };
     setState((prev) => ({
       ...prev,
+      draft,
+      status: 'editing',
       validationErrors: [],
-      status: 'completed',
-      simulationResult: result,
-      invariantResults: invResults,
-      metrics: metricsResult,
+      importErrors: [],
+      simulationResult: null,
+      invariantResults: null,
+      metrics: null,
+      isDemoMode: false,
+      baselineSnapshot: null,
+      isIdempotencyEnabled: false,
+      runtimeError: null,
     }));
-  }, [state.draft]);
+  }, []);
 
   const loadScenario = useCallback((scenario: Scenario) => {
     const draft: ScenarioDraft = {
@@ -294,6 +342,8 @@ export function useAppState() {
       isDemoMode: false,
       baselineSnapshot: null,
       isIdempotencyEnabled: false,
+      importErrors: [],
+      runtimeError: null,
     });
   }, []);
 
@@ -318,6 +368,8 @@ export function useAppState() {
       isDemoMode: true,
       baselineSnapshot: null,
       isIdempotencyEnabled: false,
+      importErrors: [],
+      runtimeError: null,
     });
   }, []);
 
@@ -343,16 +395,47 @@ export function useAppState() {
         })),
       };
 
-      return {
-        ...prev,
-        draft: newDraft,
-        baselineSnapshot: baseline,
-        isIdempotencyEnabled: true,
-        status: 'editing',
-        simulationResult: null,
-        invariantResults: null,
-        metrics: null,
-      };
+      // Auto-run simulation with the new draft
+      try {
+        const errors = validateDraft(newDraft);
+        if (errors.length > 0) {
+          return {
+            ...prev,
+            draft: newDraft,
+            baselineSnapshot: baseline,
+            isIdempotencyEnabled: true,
+            validationErrors: errors,
+            status: 'invalid' as AppStatus,
+          };
+        }
+
+        const scenario = draftToScenario(newDraft)!;
+        const result = simulateScenario(scenario);
+        const invResults = evaluateInvariants(result.events, scenario.invariants);
+        const metricsResult = computeMetrics(result.events);
+
+        return {
+          ...prev,
+          draft: newDraft,
+          baselineSnapshot: baseline,
+          isIdempotencyEnabled: true,
+          status: 'completed' as AppStatus,
+          simulationResult: result,
+          invariantResults: invResults,
+          metrics: metricsResult,
+          validationErrors: [],
+          runtimeError: null,
+        };
+      } catch (err) {
+        return {
+          ...prev,
+          draft: newDraft,
+          baselineSnapshot: baseline,
+          isIdempotencyEnabled: true,
+          runtimeError: err instanceof Error ? err.message : 'An unexpected error occurred',
+          status: 'editing' as AppStatus,
+        };
+      }
     });
   }, []);
 
@@ -380,6 +463,8 @@ export function useAppState() {
     loadDemo,
     enableIdempotencyAndReplay,
     resetDemo,
+    handleImportError,
+    handleImportSuccess,
     updateDraft,
   };
 }

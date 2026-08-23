@@ -79,10 +79,8 @@ export function App() {
           />
           <ImportExportControls
             scenario={exportableScenario}
-            onImport={(s) => app.loadScenario(s)}
-            onImportError={() => {
-              /* Validation errors handled in panel via next validation pass */
-            }}
+            onImport={(s) => app.handleImportSuccess(s)}
+            onImportError={(errors) => app.handleImportError(errors)}
           />
           <label className="app-header__seed">
             <span className="label-text">Seed</span>
@@ -154,6 +152,8 @@ export function App() {
         <RunStatus
           status={state.status}
           validationErrors={state.validationErrors}
+          importErrors={state.importErrors}
+          runtimeError={state.runtimeError}
           simulationResult={state.simulationResult}
           invariantResults={state.invariantResults}
           metrics={state.metrics}
