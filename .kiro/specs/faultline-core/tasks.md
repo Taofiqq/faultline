@@ -172,13 +172,13 @@
 
 ## Milestone 8: Import/Export (P0)
 
-- [ ] **8.1** Wire importer + exporter with demo scenario; verify round-trip. [US-7 AC-4]
+- [x] **8.1** Wire importer + exporter with demo scenario; verify round-trip. [US-7 AC-4]
   - Deps: 2.5, 2.6, 4.5
   - Verify: Export demo → import → simulate → identical normalized event sequence.
-- [ ] **8.2** Write `test/scenario/round-trip.test.ts`. [testing.md]
+- [x] **8.2** Write `test/scenario/round-trip.test.ts`. [testing.md]
   - Deps: 8.1
   - Verify: Test passes.
-- [ ] **8.3** Verify file size constraint (< 1 MB for 50 services / 200 paths). [US-7 AC-6]
+- [x] **8.3** Verify file size constraint (< 1 MB for 50 services / 200 paths). [US-7 AC-6]
   - Deps: 2.6
   - Verify: Unit test generates max-size scenario, checks output bytes.
 
