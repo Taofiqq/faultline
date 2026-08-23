@@ -330,22 +330,22 @@
 
 ## Milestone 15: Documentation & Deployment (P1)
 
-- [ ] **15.1** Write `README.md`: project overview, quick-start, architecture diagram, tech stack, development commands. [product.md]
+- [x] **15.1** Write `README.md`: project overview, quick-start, architecture diagram, tech stack, development commands. [product.md]
   - Deps: 11.2
   - Verify: README renders correctly on GitHub; commands work.
-- [ ] **15.2** Document the payment demo walkthrough with screenshots/descriptions. [US-8]
+- [x] **15.2** Document the payment demo walkthrough with screenshots/descriptions. [US-8]
   - Deps: 11.2
   - Verify: Walkthrough matches live app behaviour.
-- [ ] **15.3** Add Kiro development evidence: steering files, spec flow, hook usage documented. [judge-ready]
+- [x] **15.3** Add Kiro development evidence: steering files, spec flow, hook usage documented. [judge-ready]
   - Deps: 14.1
   - Verify: Evidence folder/section complete.
-- [ ] **15.4** Add attribution for dependencies (React, React Flow, Ajv, xoshiro128** algorithm). [legal]
+- [x] **15.4** Add attribution for dependencies (React, React Flow, Ajv, xoshiro128** algorithm). [legal]
   - Deps: 1.1
   - Verify: ATTRIBUTION.md or LICENSE section present.
-- [ ] **15.5** Configure static deployment (Vite build → dist/). [NFR-3]
+- [x] **15.5** Configure static deployment (Vite build → dist/). [NFR-3]
   - Deps: 1.7
   - Verify: `npm run build` produces deployable static assets; app loads from `dist/`.
-- [ ] **15.6** Final verification: payment demo works end-to-end, all CI checks pass, bundle ≤ 500 KB, coverage ≥ 90%. [Success Criteria]
+- [x] **15.6** Final verification: payment demo works end-to-end, all CI checks pass, bundle ≤ 500 KB, coverage ≥ 90%. [Success Criteria]
   - Deps: All
   - Verify: CI green; manual walkthrough of payment demo succeeds.
 
